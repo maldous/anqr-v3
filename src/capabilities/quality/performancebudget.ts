@@ -1,5 +1,3 @@
-// --- Type definitions ---
-
 export type ComplexityClass = 'trivial' | 'small' | 'medium' | 'large' | 'extreme';
 
 export const COMPLEXITY_CLASSES: readonly ComplexityClass[] = [
@@ -46,6 +44,7 @@ export const VALIDATION_OUTCOMES: readonly BudgetValidationOutcome[] = [
 export interface BudgetValidationResult {
   readonly outcome: BudgetValidationOutcome;
   readonly budget: PerformanceBudget;
+  readonly class: ComplexityClass;
 }
 
 export interface BudgetRefusalError {
@@ -54,6 +53,8 @@ export interface BudgetRefusalError {
   readonly class: ComplexityClass;
   readonly budget: PerformanceBudget;
   readonly measurement: RequestMeasurement;
+  readonly breachTime: boolean;
+  readonly breachSize: boolean;
 }
 
 export interface ReadinessReport {
@@ -70,16 +71,24 @@ export function budgetRefusal(
   budget: PerformanceBudget,
   measurement: RequestMeasurement,
 ): BudgetRefusalError {
+  const breachTime = measurement.elapsedMillis > budget.maxMillis;
+  const breachSize = measurement.outputBytes > budget.maxOutputBytes;
+  const reason = breachTime && breachSize
+    ? `elapsed ${measurement.elapsedMillis}ms exceeds budget of ${budget.maxMillis}ms and output ${measurement.outputBytes} bytes exceeds budget of ${budget.maxOutputBytes} bytes`
+    : breachTime
+      ? `elapsed ${measurement.elapsedMillis}ms exceeds budget of ${budget.maxMillis}ms`
+      : `output ${measurement.outputBytes} bytes exceeds budget of ${budget.maxOutputBytes} bytes`;
   return {
     kind: 'budget-refused',
     message:
-      `Request refused: elapsed ${measurement.elapsedMillis}ms exceeds ` +
-      `budget of ${budget.maxMillis}ms or output ${measurement.outputBytes} ` +
-      `bytes exceeds budget of ${budget.maxOutputBytes} bytes for class ` +
-      `"${klass}".`,
+      `Request refused for class "${klass}": ${reason}. ` +
+      `Declared budget is ${budget.maxMillis}ms and ${budget.maxOutputBytes} bytes; ` +
+      `no partial or late response will be returned.`,
     class: klass,
     budget,
     measurement,
+    breachTime,
+    breachSize,
   };
 }
 
@@ -89,24 +98,17 @@ export function classifyRequest(
   surface: Surface,
   measurement: RequestMeasurement,
 ): RequestClassResult {
-  if (!surface.budgets.has(measurementOutputClass(measurement))) {
-    for (const klass of COMPLEXITY_CLASSES) {
-      const budget = surface.budgets.get(klass);
-      if (budget === undefined) {
-        continue;
-      }
-      if (measurement.elapsedMillis <= budget.maxMillis &&
-          measurement.outputBytes <= budget.maxOutputBytes) {
-        return { ok: true, classification: klass, budget };
-      }
+  const requiredClass = measurementOutputClass(measurement);
+  const requiredBudget = surface.budgets.get(requiredClass);
+
+  if (requiredBudget !== undefined) {
+    if (measurement.elapsedMillis <= requiredBudget.maxMillis &&
+        measurement.outputBytes <= requiredBudget.maxOutputBytes) {
+      return { ok: true, classification: requiredClass, budget: requiredBudget };
     }
     return {
       ok: false,
-      error: budgetRefusal(
-        COMPLEXITY_CLASSES[COMPLEXITY_CLASSES.length - 1],
-        smallestBudget(surface),
-        measurement,
-      ),
+      error: budgetRefusal(requiredClass, requiredBudget, measurement),
     };
   }
 
@@ -198,7 +200,11 @@ export function recordSample(
   audit: (report: ReadinessReport) => ReadinessReport,
 ): ReadinessReport {
   const updated = updateReadiness(report, measurement, surface);
-  return audit(updated);
+  const audited = audit(updated);
+  if (audited !== updated) {
+    throw new Error('Audit must return the unchanged readiness report.');
+  }
+  return audited;
 }
 
 function updateReadiness(
@@ -247,22 +253,49 @@ export function validateAgainstBudget(
   if (budget === undefined) {
     throw new Error(`No budget declared for class "${klass}" on surface "${surface.id}".`);
   }
-  return validateMeasurement(budget, measurement);
+  return validateMeasurement(klass, budget, measurement);
+}
+
+export function validateMeasurementsAgainstBudgets(
+  surface: Surface,
+  samples: ReadonlyMap<ComplexityClass, RequestMeasurement>,
+): ReadonlyMap<ComplexityClass, BudgetValidationResult> {
+  const results = new Map<ComplexityClass, BudgetValidationResult>();
+  for (const klass of COMPLEXITY_CLASSES) {
+    const sample = samples.get(klass);
+    if (sample === undefined) {
+      continue;
+    }
+    const budget = surface.budgets.get(klass);
+    if (budget === undefined) {
+      continue;
+    }
+    results.set(klass, validateMeasurement(klass, budget, sample));
+  }
+  return results;
+}
+
+export function validateRepresentativeSamples(
+  surface: Surface,
+  samples: ReadonlyMap<ComplexityClass, RequestMeasurement>,
+): ReadonlyMap<ComplexityClass, BudgetValidationResult> {
+  return validateMeasurementsAgainstBudgets(surface, samples);
 }
 
 function validateMeasurement(
+  klass: ComplexityClass,
   budget: PerformanceBudget,
   measurement: RequestMeasurement,
 ): BudgetValidationResult {
   const timeOk = measurement.elapsedMillis <= budget.maxMillis;
   const sizeOk = measurement.outputBytes <= budget.maxOutputBytes;
   if (timeOk && sizeOk) {
-    return { outcome: 'within', budget };
+    return { outcome: 'within', budget, class: klass };
   }
   if (!timeOk) {
-    return { outcome: 'over-time', budget };
+    return { outcome: 'over-time', budget, class: klass };
   }
-  return { outcome: 'over-size', budget };
+  return { outcome: 'over-size', budget, class: klass };
 }
 
 // --- Factory ---

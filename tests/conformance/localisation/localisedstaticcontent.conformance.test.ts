@@ -25,9 +25,9 @@ test("localisedstaticcontentcontracts", () => {
   assert.strictEqual(page.primaryLinks.length, 1);
   assert.strictEqual(page.relatedLinks.length, 1);
   assert.strictEqual(page.sections.length, 1);
-  assert.strictEqual(page.sections[0].heading, "Introduction");
-  assert.strictEqual(page.sections[0].paragraphs.length, 1);
-  assert.strictEqual(page.sections[0].bullets.length, 2);
+  assert.strictEqual(page.sections[0]!.heading, "Introduction");
+  assert.strictEqual(page.sections[0]!.paragraphs.length, 1);
+  assert.strictEqual(page.sections[0]!.bullets.length, 2);
 
   // Negative case: invalid date must be rejected.
   assert.throws(
@@ -47,7 +47,7 @@ test("localisedstaticcontentcontracts", () => {
 test("localisedstaticcontenterrormodel", () => {
   const page = capability.createPageDefinition("Home", "Welcome", "2023-10-01");
   const enLocale = capability.createLocaleContent("en", { home: page });
-  const initialState = capability.createStaticContentState();
+  const initialState = capability.createStaticContentState("en");
   const stateWithEn = capability.addLocale(initialState, enLocale);
 
   const esLocale = capability.createLocaleContent("es", {});
@@ -77,7 +77,7 @@ test("localisedstaticcontenterrormodel", () => {
 });
 
 test("localisedstaticcontentstatemodel", () => {
-  const initialState = capability.createStaticContentState();
+  const initialState = capability.createStaticContentState("en");
   const originalLocales = initialState.locales;
 
   const page = capability.createPageDefinition("Title", "Desc", "2023-10-01");
@@ -93,7 +93,7 @@ test("localisedstaticcontentstatemodel", () => {
   const page2 = capability.createPageDefinition("Title 2", "Desc 2", "2023-10-02");
   const updatedLocale = capability.addPageToLocale(newState.locales["en"]!, "about", page2);
   assert.notStrictEqual(updatedLocale, newState.locales["en"]);
-  assert.ok(!newState.locales["en"].pages["about"], "Original locale must not gain the new page");
+  assert.ok(!newState.locales["en"]!.pages["about"], "Original locale must not gain the new page");
   assert.ok(updatedLocale.pages["about"], "Returned locale must contain the added page");
 });
 
@@ -121,7 +121,7 @@ test("localisedstaticcontentuisemantics", () => {
     [navSection]
   );
   const esLocale = capability.createLocaleContent("es", { navigation: navPage });
-  const initialState = capability.createStaticContentState();
+  const initialState = capability.createStaticContentState("en");
   const stateWithEs = capability.addLocale(initialState, esLocale);
 
   const navResult = capability.getLocaleNavigation(stateWithEs, "es");
@@ -151,7 +151,7 @@ test("localisedstaticcontentvalidation", () => {
   const frLocale = capability.createLocaleContent("fr", { home: page, about: pageWithLink });
   const deLocale = capability.createLocaleContent("de", { home: page, about: pageWithLink });
 
-  let state = capability.createStaticContentState();
+  let state = capability.createStaticContentState("en");
   state = capability.addLocale(state, enLocale);
   state = capability.addLocale(state, esLocale);
   state = capability.addLocale(state, frLocale);

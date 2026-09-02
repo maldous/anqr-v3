@@ -1,7 +1,3 @@
-// Capability module for mcpdelivery in the ANQR product.
-
-// --- Type definitions ---
-
 export interface ToolParameter {
   readonly name: string;
   readonly type: string;
@@ -107,8 +103,6 @@ export type ToolInvocationOutcome =
   | { readonly success: true; readonly tool: string }
   | { readonly success: false; readonly tool: string; readonly field: string; readonly message: string };
 
-// --- Constants ---
-
 export const BASIC_TOOL_NAME = 'basic-generation';
 export const ADVANCED_TOOL_NAME = 'advanced-generation';
 export const GENERATION_PROMPT = 'Generate QR code from provided data';
@@ -130,7 +124,11 @@ export type FormatLiteral = typeof DEFAULT_FORMATS[number];
 export type ErrorCorrectionLevelLiteral = typeof DEFAULT_ERROR_CORRECTION_LEVELS[number];
 export type SafetyGuaranteeLiteral = typeof DEFAULT_SAFETY_GUARANTEES[number];
 
-// --- Factory functions ---
+export const GENERATION_TOOL_NAMES = [BASIC_TOOL_NAME, ADVANCED_TOOL_NAME] as const;
+export type GenerationToolName = typeof GENERATION_TOOL_NAMES[number];
+
+export const OVERLAY_POLICY_LITERAL = 'same-origin' as const;
+export type OverlayPolicyLiteral = typeof OVERLAY_POLICY_LITERAL;
 
 export function createTool(
   name: string,
@@ -203,8 +201,6 @@ export function createConfig(
   return { capabilities, overlayPolicy };
 }
 
-// --- Validation functions ---
-
 export function validateToolInput(
   input: unknown,
   tool: Tool
@@ -243,6 +239,14 @@ export function validateToolInput(
         };
       }
 
+      if (param.type === 'object' && (typeof value !== 'object' || value === null)) {
+        return {
+          success: false,
+          field: param.name,
+          message: `Field '${param.name}' must be an object.`
+        };
+      }
+
       if (param.min !== undefined && typeof value === 'number' && value < param.min) {
         return {
           success: false,
@@ -258,19 +262,23 @@ export function validateToolInput(
           message: `Field '${param.name}' must be at most ${param.max}.`
         };
       }
+
+      if (param.pattern !== undefined && typeof value === 'string') {
+        const re = new RegExp(param.pattern);
+        if (!re.test(value)) {
+          return {
+            success: false,
+            field: param.name,
+            message: `Field '${param.name}' does not match pattern '${param.pattern}'.`
+          };
+        }
+      }
     }
   }
 
   return { success: true };
 }
 
-// --- Capability readiness ---
-
-/**
- * Derives a capabilities resource from the served configuration.
- * The advertised resource is exactly the resource held by the configuration,
- * so a capability can never be advertised that the surface does not actually have.
- */
 export function deriveCapabilitiesFromConfig(config: Config): CapabilitiesResource {
   if (!config) {
     throw new Error('Configuration is required to derive capabilities.');
@@ -278,16 +286,21 @@ export function deriveCapabilitiesFromConfig(config: Config): CapabilitiesResour
   return config.capabilities;
 }
 
-/**
- * Lists the tool names advertised by a configuration. Useful for verifying
- * that the surface declares the tools it actually exposes.
- */
 export function advertisedToolNames(config: Config): readonly string[] {
   const capabilities = deriveCapabilitiesFromConfig(config);
   return capabilities.tools.map((tool) => tool.name);
 }
 
-// --- Capability alignment ---
+export function advertisedCapabilityNames(config: Config): readonly string[] {
+  const capabilities = deriveCapabilitiesFromConfig(config);
+  const toolNames = capabilities.tools.map((tool) => tool.name);
+  return [
+    ...toolNames,
+    ...capabilities.formats,
+    ...capabilities.errorCorrectionLevels,
+    ...capabilities.safetyGuarantees
+  ];
+}
 
 export function validateCapabilitiesAgainstConfig(
   capabilities: CapabilitiesResource,
@@ -338,6 +351,20 @@ export function validateCapabilitiesAgainstConfig(
         enforced: String(e.parameters.length),
         message: `Advertised parameter count for '${a.name}' does not match served configuration.`
       };
+    }
+    for (let j = 0; j < a.parameters.length; j++) {
+      const ap = a.parameters[j];
+      const ep = e.parameters[j];
+      if (ap.name !== ep.name || ap.type !== ep.type || ap.required !== ep.required) {
+        return {
+          success: false,
+          aligned: false,
+          field: `tools[${i}].parameters[${j}]`,
+          advertised: `${ap.name}:${ap.type}:${ap.required}`,
+          enforced: `${ep.name}:${ep.type}:${ep.required}`,
+          message: `Advertised parameter '${ap.name}' does not match served parameter.`
+        };
+      }
     }
   }
 
@@ -428,14 +455,6 @@ export function validateCapabilitiesAgainstConfig(
   return { success: true, aligned: true };
 }
 
-// --- Tool invocation with schema enforcement ---
-
-/**
- * Invokes a declared tool against its schema. The schema check happens
- * before any mutation: when validation fails the supplied audit function
- * is called with the failure and no side-effect runs. The function does
- * not mutate state; it only returns a discriminated outcome.
- */
 export function invokeDeclaredTool(
   tool: Tool,
   input: unknown,
@@ -456,8 +475,6 @@ export function invokeDeclaredTool(
   return { success: true, tool: tool.name };
 }
 
-// --- Perimeter control functions ---
-
 export function checkOverlayPolicy(
   origin: string,
   config: Config
@@ -474,21 +491,47 @@ export function checkOverlayPolicy(
   return { allowed: true };
 }
 
-/**
- * Returns true only when the policy advertised in the capabilities resource
- * is exactly the policy enforced by the configuration. The advertised policy
- * is "same-origin" when the only allowed origin is "self".
- */
-export function overlayPolicyIsAdvertisedAsEnforced(config: Config): boolean {
-  const advertised = config.capabilities.overlayFetchPolicy;
-  const allowed = config.overlayPolicy.allowedOrigins;
-  if (allowed.length === 1 && allowed[0] === 'self') {
-    return advertised === DEFAULT_OVERLAY_POLICY;
-  }
-  return advertised === allowed.join(',');
+export function advertisedOverlayPolicy(config: Config): string {
+  return advertisedOverlayPolicyFromOrigins(config.overlayPolicy.allowedOrigins);
 }
 
-// --- Generation functions ---
+export function overlayPolicyIsAdvertisedAsEnforced(config: Config): boolean {
+  const advertised = config.capabilities.overlayFetchPolicy;
+  const enforced = advertisedOverlayPolicy(config);
+  return advertised === enforced;
+}
+
+export function isAnonymousByDefault(config: Config): boolean {
+  const allowed = config.overlayPolicy.allowedOrigins;
+  if (allowed.length !== 1) {
+    return false;
+  }
+  return allowed[0] === 'self';
+}
+
+export type PerimeterValidationOutcome =
+  | { readonly success: true; readonly anonymousByDefault: true; readonly policyAligned: true }
+  | { readonly success: false; readonly field: string; readonly message: string };
+
+export function validatePerimeterControls(
+  config: Config
+): PerimeterValidationOutcome {
+  if (!isAnonymousByDefault(config)) {
+    return {
+      success: false,
+      field: 'overlayPolicy.allowedOrigins',
+      message: 'Surface must be anonymous by default (allowedOrigins must be ["self"]).'
+    };
+  }
+  if (!overlayPolicyIsAdvertisedAsEnforced(config)) {
+    return {
+      success: false,
+      field: 'capabilities.overlayFetchPolicy',
+      message: 'Advertised overlay fetch policy does not match enforced policy.'
+    };
+  }
+  return { success: true, anonymousByDefault: true, policyAligned: true };
+}
 
 export function generateBasicQR(
   input: unknown,
@@ -597,8 +640,6 @@ export function generateAdvancedQR(
   return { success: true, artefact: `ADVANCED-QR-${Buffer.from(record.data).toString('base64')}` };
 }
 
-// --- Default configuration ---
-
 export function createDefaultConfig(): Config {
   const basicTool = createTool(
     BASIC_TOOL_NAME,
@@ -621,15 +662,27 @@ export function createDefaultConfig(): Config {
     ]
   );
 
+  const overlayPolicy = { allowedOrigins: DEFAULT_ALLOWED_ORIGINS };
+  const overlayFetchPolicy = advertisedOverlayPolicyFromOrigins(overlayPolicy.allowedOrigins);
+
   const capabilities = createCapabilitiesResource(
     [basicTool, advancedTool],
     DEFAULT_FORMATS,
     DEFAULT_ERROR_CORRECTION_LEVELS,
     DEFAULT_SIZE_RANGE,
     DEFAULT_MARGIN_RANGE,
-    DEFAULT_OVERLAY_POLICY,
+    overlayFetchPolicy,
     DEFAULT_SAFETY_GUARANTEES
   );
 
-  return createConfig(capabilities, { allowedOrigins: ['self'] });
+  return createConfig(capabilities, overlayPolicy);
+}
+
+function advertisedOverlayPolicyFromOrigins(
+  allowedOrigins: readonly string[]
+): string {
+  if (allowedOrigins.length === 1 && allowedOrigins[0] === 'self') {
+    return DEFAULT_OVERLAY_POLICY;
+  }
+  return 'deny';
 }

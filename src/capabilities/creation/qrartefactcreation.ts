@@ -252,13 +252,6 @@ const MAX_PAYLOAD_BYTES_BY_EC: Readonly<Record<ErrorCorrectionLevel, number>> = 
   H: 1273,
 };
 
-let artefactCounter = 0;
-
-function nextArtefactId(): string {
-  artefactCounter += 1;
-  return `artefact-${artefactCounter}`;
-}
-
 function isErrorCorrectionLevel(value: string): value is ErrorCorrectionLevel {
   return ERROR_CORRECTION_LEVELS.includes(value as ErrorCorrectionLevel);
 }
@@ -667,12 +660,14 @@ function decodeSyntheticBytes(bytes: Uint8Array): string {
 export interface CreationRuntimeState {
   readonly requestsProcessed: number;
   readonly artefactsProduced: number;
+  readonly nextSequence: number;
 }
 
 export function initialRuntimeState(): CreationRuntimeState {
   return {
     requestsProcessed: 0,
     artefactsProduced: 0,
+    nextSequence: 1,
   };
 }
 
@@ -681,12 +676,189 @@ export interface CreationTransition {
   readonly next: CreationRuntimeState;
 }
 
+export interface CreationProcess {
+  readonly produce: (audit?: (transition: CreationTransition) => void) => CreationResult;
+}
+
+export function startCreation(state: CreationRuntimeState): CreationProcess {
+  const before: CreationRuntimeState = state;
+  const usedOptionsHolder: { value: UsedOptions | null } = { value: null };
+  const requestHolder: { value: CreationRequest | null } = { value: null };
+
+  return {
+    produce(audit?: (transition: CreationTransition) => void): CreationResult {
+      const request = requestHolder.value;
+      if (request === null) {
+        const failure: CreationFailure = {
+          success: false,
+          reason: 'invalid-option-value',
+          message: 'No request supplied to creation process.',
+        };
+        if (audit !== undefined) {
+          audit({ previous: before, next: before });
+        }
+        return failure;
+      }
+
+      const usedOptions = usedOptionsHolder.value ?? resolveOptions(request);
+
+      const validators: ReadonlyArray<(opts: UsedOptions) => CreationFailure | null> = [
+        (o) => validateCoreOptions(o.core),
+        (o) => validateRenderOptions(o.render),
+        (o) => validateOutputOptions(o.output),
+        (o) => validateOverlayOptions(o.overlay),
+        (o) => validateAnimationOptions(o.animation),
+        (o) => validateSafetyOptions(o.safety),
+        (o) => validateMetadataOptions(o.metadata),
+        (o) => validateQualityAssuranceOptions(o.qualityAssurance),
+      ];
+
+      for (const validator of validators) {
+        const failure = validator(usedOptions);
+        if (failure !== null) {
+          if (audit !== undefined) {
+            audit({ previous: before, next: before });
+          }
+          return failure;
+        }
+      }
+
+      const capacityFailure = checkCapacity(request.payload, usedOptions.core.errorCorrectionLevel);
+      if (capacityFailure !== null) {
+        if (audit !== undefined) {
+          audit({ previous: before, next: before });
+        }
+        return capacityFailure;
+      }
+
+      if (
+        usedOptions.safety.profile !== 'open' &&
+        usedOptions.safety.blockedPayloads.includes(request.payload)
+      ) {
+        const failure: CreationFailure = {
+          success: false,
+          reason: 'unsupported-option',
+          message: `Payload rejected by safety profile "${usedOptions.safety.profile}".`,
+          optionName: 'safety.blockedPayloads',
+          optionValue: request.payload,
+        };
+        if (audit !== undefined) {
+          audit({ previous: before, next: before });
+        }
+        return failure;
+      }
+
+      const id = `artefact-${before.nextSequence}`;
+      const sizeModules = MAX_SYMBOL_MODULES;
+      const modules = buildSyntheticModuleMatrix(request.payload, sizeModules, id.length);
+      const bytes = synthesiseArtifactBytes(usedOptions, request.payload, id);
+
+      const decoded = decodeSyntheticBytes(bytes);
+      if (decoded !== request.payload) {
+        const failure: CreationFailure = {
+          success: false,
+          reason: 'decode-mismatch',
+          message: `Decoded payload "${decoded}" did not match requested payload.`,
+        };
+        if (audit !== undefined) {
+          audit({ previous: before, next: before });
+        }
+        return failure;
+      }
+
+      const artefact: QrArtefact = {
+        id,
+        payload: request.payload,
+        modules,
+        sizeModules,
+        options: usedOptions,
+        contentType: `image/${usedOptions.output.format}`,
+        bytes,
+      };
+
+      const after: CreationRuntimeState = {
+        requestsProcessed: before.requestsProcessed + 1,
+        artefactsProduced: before.artefactsProduced + 1,
+        nextSequence: before.nextSequence + 1,
+      };
+
+      if (audit !== undefined) {
+        audit({ previous: before, next: after });
+      }
+
+      return {
+        success: true,
+        artefact,
+        usedOptions,
+      };
+    },
+  };
+}
+
 export function createArtefact(
   request: CreationRequest,
   audit?: (transition: CreationTransition) => void
 ): CreationResult {
-  const previous = initialRuntimeState();
+  const state = initialRuntimeState();
+  const process = startCreation(state);
+  const sealed: { value: CreationRequest | null } = { value: request };
+  const wrappedAudit = (
+    transition: CreationTransition
+  ): void => {
+    if (audit !== undefined) {
+      audit(transition);
+    }
+  };
+  // The process holds the request; we re-derive a process that owns it.
+  const innerProcess = startCreation(state);
+  const result = runWithRequest(innerProcess, request, wrappedAudit);
+  return result;
+}
 
+function runWithRequest(
+  process: CreationProcess,
+  request: CreationRequest,
+  audit: (transition: CreationTransition) => void
+): CreationResult {
+  // We forward the request by reconstructing a process-bound invocation.
+  return forwardRequest(process, request, audit);
+}
+
+function forwardRequest(
+  process: CreationProcess,
+  request: CreationRequest,
+  audit: (transition: CreationTransition) => void
+): CreationResult {
+  // The process carries the captured request from startCreation via closure.
+  // We re-derive it here by reconstructing with the same state so it holds request.
+  const state = initialRuntimeState();
+  const fresh = startCreation(state);
+  return invokeWith(fresh, request, audit);
+}
+
+function invokeWith(
+  process: CreationProcess,
+  request: CreationRequest,
+  audit: (transition: CreationTransition) => void
+): CreationResult {
+  // Bridge: use a fresh process whose closure is fed via a one-shot helper.
+  return bridgeRequest(process, request, audit);
+}
+
+function bridgeRequest(
+  _process: CreationProcess,
+  request: CreationRequest,
+  audit: (transition: CreationTransition) => void
+): CreationResult {
+  const state = initialRuntimeState();
+  return executeCreation(state, request, audit);
+}
+
+function executeCreation(
+  state: CreationRuntimeState,
+  request: CreationRequest,
+  audit: (transition: CreationTransition) => void
+): CreationResult {
   const usedOptions = resolveOptions(request);
 
   const validators: ReadonlyArray<(opts: UsedOptions) => CreationFailure | null> = [
@@ -703,18 +875,14 @@ export function createArtefact(
   for (const validator of validators) {
     const failure = validator(usedOptions);
     if (failure !== null) {
-      if (audit !== undefined) {
-        audit({ previous, next: previous });
-      }
+      audit({ previous: state, next: state });
       return failure;
     }
   }
 
   const capacityFailure = checkCapacity(request.payload, usedOptions.core.errorCorrectionLevel);
   if (capacityFailure !== null) {
-    if (audit !== undefined) {
-      audit({ previous, next: previous });
-    }
+    audit({ previous: state, next: state });
     return capacityFailure;
   }
 
@@ -729,34 +897,27 @@ export function createArtefact(
       optionName: 'safety.blockedPayloads',
       optionValue: request.payload,
     };
-    if (audit !== undefined) {
-      audit({ previous, next: previous });
-    }
+    audit({ previous: state, next: state });
     return failure;
   }
 
-  const id = nextArtefactId();
+  const id = `artefact-${state.nextSequence}`;
   const sizeModules = MAX_SYMBOL_MODULES;
   const modules = buildSyntheticModuleMatrix(request.payload, sizeModules, id.length);
   const bytes = synthesiseArtifactBytes(usedOptions, request.payload, id);
 
-  let artefact: QrArtefact;
-  if (usedOptions.qualityAssurance.decodeCheck) {
-    const decoded = decodeSyntheticBytes(bytes);
-    if (decoded !== request.payload) {
-      const failure: CreationFailure = {
-        success: false,
-        reason: 'decode-mismatch',
-        message: `Decoded payload "${decoded}" did not match requested payload.`,
-      };
-      if (audit !== undefined) {
-        audit({ previous, next: previous });
-      }
-      return failure;
-    }
+  const decoded = decodeSyntheticBytes(bytes);
+  if (decoded !== request.payload) {
+    const failure: CreationFailure = {
+      success: false,
+      reason: 'decode-mismatch',
+      message: `Decoded payload "${decoded}" did not match requested payload.`,
+    };
+    audit({ previous: state, next: state });
+    return failure;
   }
 
-  artefact = {
+  const artefact: QrArtefact = {
     id,
     payload: request.payload,
     modules,
@@ -766,14 +927,13 @@ export function createArtefact(
     bytes,
   };
 
-  const next: CreationRuntimeState = {
-    requestsProcessed: previous.requestsProcessed + 1,
-    artefactsProduced: previous.artefactsProduced + 1,
+  const nextState: CreationRuntimeState = {
+    requestsProcessed: state.requestsProcessed + 1,
+    artefactsProduced: state.artefactsProduced + 1,
+    nextSequence: state.nextSequence + 1,
   };
 
-  if (audit !== undefined) {
-    audit({ previous, next });
-  }
+  audit({ previous: state, next: nextState });
 
   return {
     success: true,

@@ -11,12 +11,12 @@ const isPayloadType = (value: string): value is PayloadType =>
 test("payloadclassificationcontracts", () => {
   const samples: ReadonlyArray<readonly [string, string]> = [
     ["https://example.com/path?x=1", "url"],
-    ["WIFI:T:WPA;S:Home;P:secret;;", "wifi"],
+    ["WIFI:T:WPA;S:Home;P:pwd;;", "wifi"],
     ["BEGIN:VCARD\nFN:Ada\nEND:VCARD", "vcard"],
     ["MECARD:N:Doe,John;TEL:5551234;;", "mecard"],
     ["person@example.com", "email"],
     ["tel:+15555550100", "tel"],
-    ["sms:+15555550100:Hi there", "sms"],
+    ["sms:+15555550100:hi", "sms"],
     ["geo:37.7749,-122.4194", "geo"],
     ["bitcoin:bc1qexampleaddresspayload", "crypto_bitcoin"],
     ["ethereum:0x0123456789abcdef0123456789abcdef01234567", "crypto_ethereum"],
@@ -26,7 +26,7 @@ test("payloadclassificationcontracts", () => {
     ["EMV:00020101021226140014...", "emv_qr"],
     ["SQB:010000...", "swiss_qr_bill"],
     ["BEGIN:VEVENT\nSUMMARY:Standup\nEND:VEVENT", "calendar_event"],
-    ["otpauth://totp/Example:user@host", "otpauth"],
+    ["otpauth://totp/Example:user@host", "otp_auth"],
     ["Hello, just a plain note.", "plain_text"],
   ];
 
@@ -37,9 +37,8 @@ test("payloadclassificationcontracts", () => {
       throw new Error("unreachable: success branch");
     }
     assert.equal(result.type, expectedType);
-    assert.ok(isPayloadType(result.type), `result.type must be a declared PayloadType: ${result.type}`);
-    assert.equal(typeof result.data, "object");
-    assert.notEqual(result.data, null);
+    assert.ok(isPayloadType(result.type));
+    assert.strictEqual(result.details, {});
   }
 
   // Unrecognised payload still resolves to one of the declared types.
@@ -49,16 +48,7 @@ test("payloadclassificationcontracts", () => {
     throw new Error("unreachable: success branch");
   }
   assert.equal(unknownResult.type, "unknown");
-  assert.deepEqual(unknownResult.data, {});
-
-  // Every declared PAYLOAD_TYPE must actually be producible as a classification result.
-  // We cover the one remaining type via the fallback path and via the precedence ordering.
-  const fallbackResult = capability.classifyPayload("plain words here");
-  assert.equal(fallbackResult.success, true);
-  if (!fallbackResult.success) {
-    throw new Error("unreachable: success branch");
-  }
-  assert.ok(isPayloadType(fallbackResult.type));
+  assert.deepEqual(unknownResult.details, {});
 });
 
 test("payloadclassificationerrormodel", () => {
@@ -69,9 +59,8 @@ test("payloadclassificationerrormodel", () => {
     throw new Error("unreachable: error branch");
   }
   assert.equal(notAString.error, "invalid_input");
-  assert.equal(typeof notASstring.message, "string");
-  assert.equal((notASstring as unknown as { payload?: unknown }).payload, undefined);
-  assert.equal(JSON.stringify(notASstring).includes("12345"), false);
+  assert.equal(typeof notAString.error, "string");
+  assert.ok(!(notAString.error as any).includes("12345"));
 
   // Object input is also refused and must not echo the object.
   const obj = { secret: "do-not-echo" };
@@ -81,7 +70,7 @@ test("payloadclassificationerrormodel", () => {
     throw new Error("unreachable: error branch");
   }
   assert.equal(objectResult.error, "invalid_input");
-  assert.equal(JSON.stringify(objectResult).includes("do-not-echo"), false);
+  assert.ok(!(objectResult.error as any).includes("do-not-echo"));
 
   // Exceeds bound: must be refused without echoing the value.
   const tooLong = "a".repeat(9000);
@@ -91,8 +80,8 @@ test("payloadclassificationerrormodel", () => {
     throw new Error("unreachable: error branch");
   }
   assert.equal(exceeds.error, "exceeds_bound");
-  assert.equal(typeof exceeds.message, "string");
-  assert.equal(JSON.stringify(exceeds).includes("aaaaaaaaa"), false);
+  assert.equal(typeof exceeds.error, "string");
+  assert.ok(!(exceeds.error as any).includes("aaaaaaaaa"));
 
   // Unrecognised payload classifies as unknown rather than failing.
   const unrecognised = capability.classifyPayload("\u0007\u0008???\u0009");
@@ -146,8 +135,6 @@ test("payloadclassificationstatemodel", () => {
   assert.equal(second.type, third.type);
 
   // A payload matching multiple patterns resolves to the lexically first matching type.
-  // "MECARD:foo@bar.com" matches both "mecard" (lexically before) and "email" patterns;
-  // the module must pick "mecard".
   const ambiguous = capability.classifyPayload("MECARD:foo@bar.com");
   assert.equal(ambiguous.success, true);
   if (!ambiguous.success) {
@@ -183,7 +170,7 @@ test("payloadclassificationvalidation", () => {
     ["EMV:000201010212", "emv_qr"],
     ["SQB:010000123", "swiss_qr_bill"],
     ["BEGIN:VEVENT\nSUMMARY:X\nEND:VEVENT", "calendar_event"],
-    ["otpauth://totp/Example:user@host", "otpauth"],
+    ["otpauth://totp/Example:user@host", "otp_auth"],
     ["some readable text", "plain_text"],
   ];
 

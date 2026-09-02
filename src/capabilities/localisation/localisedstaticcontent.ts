@@ -52,11 +52,13 @@ export type PageValidationResult =
   | { readonly success: true; readonly pageType: string }
   | { readonly success: false; readonly error: string };
 
+export type RenderResult =
+  | { readonly success: true; readonly page: PageDefinition; readonly localeCode: string; readonly gap?: GapReport }
+  | { readonly success: false; readonly error: string };
+
 // --- Constants ---
 
-export const DEFAULT_SOURCE_LOCALE = 'en' as const;
-export const SUPPORTED_LOCALES = ['en', 'es', 'fr', 'de'] as const;
-export type SupportedLocale = typeof SUPPORTED_LOCALES[number];
+// No hardcoded locale defaults; source locale must be provided explicitly.
 
 // --- Factory functions ---
 
@@ -128,21 +130,16 @@ export function createLocaleContent(localeCode: string, pages: Record<string, Pa
   if (!localeCode || localeCode.trim() === '') {
     throw new Error('Locale code must be a non-empty string.');
   }
-  if (!SUPPORTED_LOCALES.includes(localeCode as SupportedLocale)) {
-    throw new Error(`Unsupported locale code: ${localeCode}. Supported: ${SUPPORTED_LOCALES.join(', ')}`);
-  }
   return { localeCode: localeCode.trim(), pages: { ...pages } };
 }
 
 /**
  * Creates initial static content state with source locale.
+ * Source locale must be provided explicitly; no hardcoded default.
  */
-export function createStaticContentState(sourceLocale: string = DEFAULT_SOURCE_LOCALE): StaticContentState {
+export function createStaticContentState(sourceLocale: string): StaticContentState {
   if (!sourceLocale || sourceLocale.trim() === '') {
     throw new Error('Source locale must be a non-empty string.');
-  }
-  if (!SUPPORTED_LOCALES.includes(sourceLocale as SupportedLocale)) {
-    throw new Error(`Unsupported source locale: ${sourceLocale}. Supported: ${SUPPORTED_LOCALES.join(', ')}`);
   }
   return {
     sourceLocale,
@@ -199,7 +196,6 @@ export function addLocale(
   state: StaticContentState,
   localeContent: LocaleContent
 ): StaticContentState {
-  // Validate locale content
   if (!localeContent.localeCode || localeContent.localeCode.trim() === '') {
     throw new Error('Locale code must be a non-empty string.');
   }
@@ -242,14 +238,14 @@ export function addPageToLocale(
 
 /**
  * Gets a page from a locale with fallback to source language.
- * Reports gap if page type is missing in requested locale.
+ * Reports gap if page type is missing in requested locale (locale must exist).
+ * Does NOT fallback if the locale itself is missing.
  */
 export function getPage(
   state: StaticContentState,
   localeCode: string,
   pageType: string
 ): PageResult {
-  // Validate inputs
   if (!localeCode || localeCode.trim() === '') {
     return { success: false, error: 'Locale code must be a non-empty string.' };
   }
@@ -259,29 +255,16 @@ export function getPage(
 
   const locale = state.locales[localeCode];
   if (!locale) {
-    // Try fallback to source locale
-    const sourceLocale = state.locales[state.sourceLocale];
-    if (sourceLocale && sourceLocale.pages[pageType]) {
-      const gapReport: GapReport = {
-        localeCode,
-        pageType,
-        fallbackLocale: state.sourceLocale,
-      };
-      return {
-        success: true,
-        page: sourceLocale.pages[pageType],
-        gap: gapReport,
-      };
-    }
-    return { success: false, error: `Locale ${localeCode} not found and no source fallback available.` };
+    // Locale does not exist: fail-closed, no fallback
+    return { success: false, error: `Locale ${localeCode} not found in state.` };
   }
 
-  // Check if page exists in requested locale
+  // Locale exists; check for page
   if (locale.pages[pageType]) {
     return { success: true, page: locale.pages[pageType] };
   }
 
-  // Fallback to source locale
+  // Page type missing in this locale: fallback to source language and report gap
   const sourceLocale = state.locales[state.sourceLocale];
   if (sourceLocale && sourceLocale.pages[pageType]) {
     const gapReport: GapReport = {
@@ -316,7 +299,6 @@ export function resolveInternalLinks(
   const resolvedPrimaryLinks: Link[] = [];
   const resolvedRelatedLinks: Link[] = [];
 
-  // Resolve primary links
   for (const link of page.primaryLinks) {
     if (link.isInternal) {
       const pageResult = getPage(state, localeCode, link.href);
@@ -330,7 +312,6 @@ export function resolveInternalLinks(
     }
   }
 
-  // Resolve related links
   for (const link of page.relatedLinks) {
     if (link.isInternal) {
       const pageResult = getPage(state, localeCode, link.href);
@@ -354,27 +335,73 @@ export function resolveInternalLinks(
 }
 
 /**
- * Validates that all declared locales and page types are loaded.
- * Returns validation results for each locale and page type.
+ * Renders a page: loads it (with fallback) and resolves internal links in the page's own locale.
+ * Returns the rendered page, the locale it was served from, and an optional gap report.
+ */
+export function renderPage(
+  state: StaticContentState,
+  localeCode: string,
+  pageType: string
+): RenderResult {
+  const pageResult = getPage(state, localeCode, pageType);
+  if (!pageResult.success) {
+    return { success: false, error: pageResult.error };
+  }
+
+  // Determine the locale that actually served the page
+  const servedLocale = pageResult.gap ? pageResult.gap.fallbackLocale : localeCode;
+
+  // Resolve internal links in the served locale (so navigation matches body language)
+  const resolveResult = resolveInternalLinks(state, servedLocale, pageResult.page);
+  if (!resolveResult.success) {
+    return { success: false, error: resolveResult.error };
+  }
+
+  return {
+    success: true,
+    page: resolveResult.page,
+    localeCode: servedLocale,
+    gap: pageResult.gap,
+  };
+}
+
+/**
+ * Validates that all declared locales and page types are loaded and rendered,
+ * and that internal links are resolved within each locale.
+ *
+ * Renders every page in every locale; for non-source locales, uses the requested locale
+ * (so a gap is recorded when a page type is missing in that locale).
  */
 export function validateContentCompleteness(state: StaticContentState): {
   readonly localeValidations: LocaleValidationResult[];
   readonly pageValidations: PageValidationResult[];
   readonly missingPages: GapReport[];
+  readonly renderingErrors: string[];
 } {
   const localeValidations: LocaleValidationResult[] = [];
   const pageValidations: PageValidationResult[] = [];
   const missingPages: GapReport[] = [];
+  const renderingErrors: string[] = [];
 
-  // Check all supported locales
-  for (const localeCode of SUPPORTED_LOCALES) {
+  // Validate every declared locale
+  for (const localeCode of Object.keys(state.locales)) {
     const locale = state.locales[localeCode];
     if (locale) {
       localeValidations.push({ success: true, localeCode });
-      
-      // Check pages in this locale against source locale pages
+
+      // Check each page in this locale can be rendered (loads + links resolve)
+      for (const pageType of Object.keys(locale.pages)) {
+        const renderResult = renderPage(state, localeCode, pageType);
+        if (!renderResult.success) {
+          renderingErrors.push(`Locale ${localeCode}, page ${pageType}: ${renderResult.error}`);
+        }
+        // Also record page existence validation
+        pageValidations.push({ success: true, pageType });
+      }
+
+      // Detect pages missing in this locale compared to source
       const sourceLocale = state.locales[state.sourceLocale];
-      if (sourceLocale) {
+      if (sourceLocale && localeCode !== state.sourceLocale) {
         for (const pageType of Object.keys(sourceLocale.pages)) {
           if (!locale.pages[pageType]) {
             missingPages.push({
@@ -386,11 +413,11 @@ export function validateContentCompleteness(state: StaticContentState): {
         }
       }
     } else {
-      localeValidations.push({ success: false, error: `Locale ${localeCode} not found in state.`, localeCode } as any);
+      localeValidations.push({ success: false, error: `Locale ${localeCode} not found in state.` });
     }
   }
 
-  // Check page types in source locale
+  // Validate source locale pages explicitly
   const sourceLocale = state.locales[state.sourceLocale];
   if (sourceLocale) {
     for (const pageType of Object.keys(sourceLocale.pages)) {
@@ -403,6 +430,7 @@ export function validateContentCompleteness(state: StaticContentState): {
     localeValidations,
     pageValidations,
     missingPages,
+    renderingErrors,
   };
 }
 
@@ -426,8 +454,41 @@ export function getLocaleNavigation(
     return pageResult;
   }
 
-  // The navigation page itself should have its internal links resolved
   return resolveInternalLinks(state, localeCode, pageResult.page);
+}
+
+/**
+ * Removes a locale from the static content state.
+ * Returns new state; does not mutate input.
+ */
+export function removeLocale(
+  state: StaticContentState,
+  localeCode: string
+): StaticContentState {
+  if (!localeCode || localeCode.trim() === '') {
+    throw new Error('Locale code must be a non-empty string.');
+  }
+  if (localeCode === state.sourceLocale) {
+    throw new Error('Cannot remove source locale.');
+  }
+  if (!state.locales[localeCode]) {
+    throw new Error(`Locale ${localeCode} not found in state.`);
+  }
+
+  const newLocales: Record<string, LocaleContent> = {};
+  for (const key of Object.keys(state.locales)) {
+    if (key !== localeCode) {
+      const locale = state.locales[key];
+      if (locale) {
+        newLocales[key] = locale;
+      }
+    }
+  }
+
+  return {
+    ...state,
+    locales: newLocales,
+  };
 }
 
 // --- Composite workflow function ---
@@ -435,6 +496,7 @@ export function getLocaleNavigation(
 /**
  * Exercises the complete localised static content workflow.
  * Creates state, adds locales and pages, validates, and retrieves content.
+ * Source locale is provided explicitly; no hardcoded defaults.
  */
 export function exerciseLocalisedStaticContentWorkflow(): {
   readonly state: StaticContentState;
@@ -443,12 +505,11 @@ export function exerciseLocalisedStaticContentWorkflow(): {
     readonly localeValidations: LocaleValidationResult[];
     readonly pageValidations: PageValidationResult[];
     readonly missingPages: GapReport[];
+    readonly renderingErrors: string[];
   };
 } {
-  // Create initial state
-  let state = createStaticContentState();
+  let state = createStaticContentState('en');
 
-  // Create source locale (English)
   const enSections = [
     createSection('Introduction', ['This is the introduction paragraph.'], ['First bullet point', 'Second bullet point']),
     createSection('Details', ['Detailed information goes here.'], []),
@@ -464,9 +525,14 @@ export function exerciseLocalisedStaticContentWorkflow(): {
   );
 
   const enLocale = createLocaleContent('en', { home: enPage });
-  state = addLocale(state, enLocale);
+  state = {
+    ...state,
+    locales: {
+      ...state.locales,
+      [enLocale.localeCode]: enLocale,
+    },
+  };
 
-  // Create Spanish locale
   const esSections = [
     createSection('Introducción', ['Este es el párrafo de introducción.'], ['Primer punto de lista', 'Segundo punto de lista']),
     createSection('Detalles', ['La información detallada va aquí.'], []),
@@ -484,10 +550,8 @@ export function exerciseLocalisedStaticContentWorkflow(): {
   const esLocale = createLocaleContent('es', { home: esPage });
   state = addLocale(state, esLocale);
 
-  // Test retrieval with fallback (Spanish page exists, so no fallback)
   const retrievedPage = getPage(state, 'es', 'home');
 
-  // Validate completeness
   const completeness = validateContentCompleteness(state);
 
   return {

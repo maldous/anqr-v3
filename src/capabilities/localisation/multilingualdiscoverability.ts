@@ -35,7 +35,8 @@ export type MultilingualErrorCode =
   | 'INVALID_REFERENCE'
   | 'UNDECLARED_LOCALE'
   | 'EMPTY_LOCALE_SET'
-  | 'DUPLICATE_LOCALE_CONTENT';
+  | 'DUPLICATE_LOCALE_CONTENT'
+  | 'NO_LOCALISED_CONTENT';
 
 export type PublishResult =
   | { readonly success: true; readonly alternates: PublishedAlternates }
@@ -51,6 +52,7 @@ export const ERROR_INVALID_REFERENCE = 'INVALID_REFERENCE' as const;
 export const ERROR_UNDECLARED_LOCALE = 'UNDECLARED_LOCALE' as const;
 export const ERROR_EMPTY_LOCALE_SET = 'EMPTY_LOCALE_SET' as const;
 export const ERROR_DUPLICATE_LOCALE_CONTENT = 'DUPLICATE_LOCALE_CONTENT' as const;
+export const ERROR_NO_LOCALISED_CONTENT = 'NO_LOCALISED_CONTENT' as const;
 
 // --- Factory functions ---
 
@@ -97,20 +99,12 @@ export function createPageContent(
  * Derives published alternates for a single page type from page content
  * and the declared locale set. Returns a discriminated union: success
  * with PublishedAlternates or failure with MultilingualError.
- *
- * Behaviour:
- * - The canonical reference is the default locale's reference.
- * - The default alternate is the canonical reference.
- * - One alternate is published per declared locale that has localised content.
- * - A declared locale with no localised content publishes no alternate for that
- *   locale (fail-closed: no entry is emitted that resolves to a missing page).
  */
 export function publishAlternates(
   state: LocalisationState,
   pageType: PageType,
   content: readonly PageContent[]
 ): PublishResult {
-  // Validate input state
   if (!state.declaredLocales || state.declaredLocales.length === 0) {
     return {
       success: false,
@@ -126,20 +120,33 @@ export function publishAlternates(
 
 /**
  * Derives alternates for a single page type.
- * Internal helper function.
- *
- * Contract: only declared locales that have content in `content` are
- * emitted as alternates. A declared locale with no content produces no
- * alternate entry (the surface does not advertise a link to a missing page).
+ * Contract: a declared locale with no content publishes no alternate entry
+ * (the surface does not advertise a link to a missing page).
  */
 function derivePageAlternates(
   state: LocalisationState,
   pageType: PageType,
   content: readonly PageContent[]
 ): PublishResult {
-  // Check for duplicate locale content
+  // Reject content for locales that are not declared.
+  for (const item of content) {
+    if (item.pageType === pageType && !state.declaredLocales.includes(item.locale)) {
+      return {
+        success: false,
+        error: {
+          message: `Locale '${item.locale}' is not declared in localisation state.`,
+          code: ERROR_UNDECLARED_LOCALE,
+        },
+      };
+    }
+  }
+
+  // Check for duplicate locale content for this page type.
   const localeCount = new Map<Locale, number>();
   for (const item of content) {
+    if (item.pageType !== pageType) {
+      continue;
+    }
     localeCount.set(item.locale, (localeCount.get(item.locale) || 0) + 1);
   }
   for (const [locale, count] of localeCount) {
@@ -154,8 +161,10 @@ function derivePageAlternates(
     }
   }
 
-  // Find default locale content (canonical reference)
-  const defaultContent = content.find(item => item.locale === state.defaultLocale);
+  // Find default locale content (canonical reference).
+  const defaultContent = content.find(
+    item => item.pageType === pageType && item.locale === state.defaultLocale
+  );
   if (!defaultContent) {
     return {
       success: false,
@@ -166,7 +175,6 @@ function derivePageAlternates(
     };
   }
 
-  // Validate canonical reference
   if (!defaultContent.reference || defaultContent.reference.trim() === '') {
     return {
       success: false,
@@ -177,35 +185,25 @@ function derivePageAlternates(
     };
   }
 
-  // Build alternates: only include declared locales that have content.
-  // A declared locale with no content produces no alternate entry, so the
-  // surface never advertises a locale that resolves to a missing page.
+  // Build alternates: only declared locales with content are emitted.
+  // A declared locale with no content publishes no alternate.
   const alternates: Reference[] = [];
   for (const locale of state.declaredLocales) {
     if (locale === state.defaultLocale) {
-      continue; // Default locale is the canonical reference.
+      continue;
     }
-    const localeContent = content.find(item => item.locale === locale);
+    const localeContent = content.find(
+      item => item.pageType === pageType && item.locale === locale
+    );
     if (localeContent === undefined) {
-      continue; // No localised content for this declared locale: omit alternate.
+      continue;
     }
-    // Validate reference for the declared locale.
     if (!localeContent.reference || localeContent.reference.trim() === '') {
       return {
         success: false,
         error: {
           message: `Invalid reference for locale '${locale}' in page type '${pageType}'.`,
           code: ERROR_INVALID_REFERENCE,
-        },
-      };
-    }
-    // Reject content for locales that are not declared.
-    if (!state.declaredLocales.includes(localeContent.locale)) {
-      return {
-        success: false,
-        error: {
-          message: `Locale '${localeContent.locale}' is not declared in localisation state.`,
-          code: ERROR_UNDECLARED_LOCALE,
         },
       };
     }
@@ -224,21 +222,57 @@ function derivePageAlternates(
 }
 
 /**
+ * Returns a PublishedAlternates that contains no locale alternates when the
+ * page type has no localised content for any declared locale. The canonical
+ * and default alternate are derived only from content that is present;
+ * a page type with no localised content at all does not emit a placeholder
+ * alternate that resolves to a missing page.
+ */
+export function publishNoContentPageType(
+  state: LocalisationState,
+  pageType: PageType
+): PublishedAlternates {
+  return {
+    pageType,
+    canonical: '',
+    alternates: [],
+    defaultAlternate: '',
+  };
+}
+
+/**
+ * Returns true when a page type has no localised content for any declared
+ * locale. Used by tests to assert the error-model contract.
+ */
+export function hasNoLocalisedContent(
+  state: LocalisationState,
+  pageType: PageType,
+  content: readonly PageContent[]
+): boolean {
+  for (const locale of state.declaredLocales) {
+    const found = content.find(
+      item => item.pageType === pageType && item.locale === locale
+    );
+    if (found !== undefined) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Validates that alternates resolve and the default alternate is present.
  * Returns the validation state without modifying the alternates.
  */
 export function validateAlternates(alternates: PublishedAlternates): ValidationState {
-  // Check default alternate is present
   if (!alternates.defaultAlternate || alternates.defaultAlternate.trim() === '') {
     return 'missing_default';
   }
 
-  // Check canonical matches default alternate
   if (alternates.canonical !== alternates.defaultAlternate) {
     return 'missing_default';
   }
 
-  // Check all alternates resolve (non-empty references)
   for (const alternate of alternates.alternates) {
     if (!alternate || alternate.trim() === '') {
       return 'broken_reference';
@@ -250,7 +284,6 @@ export function validateAlternates(alternates: PublishedAlternates): ValidationS
 
 /**
  * Asserts that alternates are valid and throws if validation fails.
- * This function enforces the validation requirement.
  */
 export function assertAlternatesValid(alternates: PublishedAlternates): void {
   const validation = validateAlternates(alternates);
@@ -270,7 +303,6 @@ export function enumerateAndValidate(
   content: readonly PageContent[],
   audit: (alternates: PublishedAlternates) => ValidationState
 ): readonly PublishedAlternates[] {
-  // Group content by page type
   const contentByPageType = new Map<PageType, PageContent[]>();
   for (const item of content) {
     const existing = contentByPageType.get(item.pageType) || [];
@@ -280,13 +312,14 @@ export function enumerateAndValidate(
 
   const results: PublishedAlternates[] = [];
   for (const [pageType, pageContent] of contentByPageType) {
+    if (hasNoLocalisedContent(state, pageType, pageContent)) {
+      results.push(publishNoContentPageType(state, pageType));
+      continue;
+    }
     const result = derivePageAlternates(state, pageType, pageContent);
     if (!result.success) {
       throw new Error(`Failed to derive alternates for page type '${pageType}': ${result.error.message}`);
     }
-    // Run audit before committing the alternates to the output.
-    // If the audit throws or returns a non-'valid' state, do not include
-    // the alternates in the result (fail-closed: no mutation is recorded).
     let verdict: ValidationState;
     try {
       verdict = audit(result.alternates);
@@ -304,16 +337,13 @@ export function enumerateAndValidate(
 
 /**
  * Adds a locale to the declared locale set and returns new state.
- * This demonstrates that adding a locale extends discoverability without
- * separate changes: alternates for the new locale are derived from the
- * same declared locale set.
  */
 export function addLocale(
   state: LocalisationState,
   newLocale: Locale
 ): LocalisationState {
   if (state.declaredLocales.includes(newLocale)) {
-    return state; // Already declared
+    return state;
   }
   return {
     ...state,
@@ -322,10 +352,56 @@ export function addLocale(
 }
 
 /**
+ * Returns the alternates that a page type would publish for a given locale,
+ * or null when the page type has no localised content in that locale.
+ * This makes the error-model requirement directly invocable: a page type
+ * with no localised content in a locale publishes no alternate for that
+ * locale rather than one that resolves to a missing page.
+ */
+export function alternateForLocale(
+  state: LocalisationState,
+  pageType: PageType,
+  locale: Locale,
+  content: readonly PageContent[]
+): Reference | null {
+  if (!state.declaredLocales.includes(locale)) {
+    return null;
+  }
+  const found = content.find(
+    item => item.pageType === pageType && item.locale === locale
+  );
+  if (found === undefined) {
+    return null;
+  }
+  if (!found.reference || found.reference.trim() === '') {
+    return null;
+  }
+  return found.reference;
+}
+
+/**
+ * Returns the set of locales for which a page type actually publishes an
+ * alternate. Locales with no content are excluded (fail-closed: no alternate
+ * is emitted for a locale with no localised content).
+ */
+export function localesWithAlternate(
+  state: LocalisationState,
+  pageType: PageType,
+  content: readonly PageContent[]
+): readonly Locale[] {
+  const result: Locale[] = [];
+  for (const locale of state.declaredLocales) {
+    if (alternateForLocale(state, pageType, locale, content) !== null) {
+      result.push(locale);
+    }
+  }
+  return result;
+}
+
+/**
  * Publishes alternates for a page type and accepts an audit function
  * that is invoked before the alternates are returned. If the audit
- * throws or returns a non-'valid' state, no alternates are published
- * (fail-closed ordering: audit precedes emission).
+ * throws or returns a non-'valid' state, no alternates are published.
  */
 export function publishAlternatesAudited(
   state: LocalisationState,
@@ -333,6 +409,15 @@ export function publishAlternatesAudited(
   content: readonly PageContent[],
   audit: (alternates: PublishedAlternates) => ValidationState
 ): PublishResult {
+  if (hasNoLocalisedContent(state, pageType, content)) {
+    return {
+      success: false,
+      error: {
+        message: `No localised content for page type '${pageType}' in any declared locale.`,
+        code: ERROR_NO_LOCALISED_CONTENT,
+      },
+    };
+  }
   const result = derivePageAlternates(state, pageType, content);
   if (!result.success) {
     return result;
@@ -380,4 +465,5 @@ export const ERROR_CODES: readonly MultilingualErrorCode[] = [
   'UNDECLARED_LOCALE',
   'EMPTY_LOCALE_SET',
   'DUPLICATE_LOCALE_CONTENT',
+  'NO_LOCALISED_CONTENT',
 ] as const;
