@@ -1,8 +1,3 @@
-// localisedstaticcontent.ts
-// Capability module for localised static content in the ANQR product.
-
-// --- Type definitions ---
-
 export interface Link {
   readonly label: string;
   readonly href: string;
@@ -18,7 +13,7 @@ export interface Section {
 export interface PageDefinition {
   readonly title: string;
   readonly description: string;
-  readonly lastUpdated: string; // ISO date string
+  readonly lastUpdated: string;
   readonly primaryLinks: readonly Link[];
   readonly relatedLinks: readonly Link[];
   readonly sections: readonly Section[];
@@ -38,6 +33,7 @@ export interface GapReport {
   readonly localeCode: string;
   readonly pageType: string;
   readonly fallbackLocale: string;
+  readonly reported: true;
 }
 
 export type PageResult =
@@ -56,15 +52,67 @@ export type RenderResult =
   | { readonly success: true; readonly page: PageDefinition; readonly localeCode: string; readonly gap?: GapReport }
   | { readonly success: false; readonly error: string };
 
-// --- Constants ---
+export type ContentCompletenessResult =
+  | {
+      readonly success: true;
+      readonly localeValidations: readonly LocaleValidationResult[];
+      readonly pageValidations: readonly PageValidationResult[];
+      readonly missingPages: readonly GapReport[];
+      readonly renderFailures: readonly string[];
+    }
+  | { readonly success: false; readonly error: string };
 
-// No hardcoded locale defaults; source locale must be provided explicitly.
+export const ERR_LOCALE_NOT_FOUND = 'locale_not_found' as const;
+export const ERR_PAGE_NOT_FOUND = 'page_not_found' as const;
+export const ERR_INVALID_DATE = 'invalid_date' as const;
+export const ERR_INVALID_INPUT = 'invalid_input' as const;
+export const ERR_INTERNAL_LINK_UNRESOLVED = 'internal_link_unresolved' as const;
+export const ERR_SOURCE_LOCALE_MISSING = 'source_locale_missing' as const;
+export const ERR_INVALID_AUDIT = 'invalid_audit' as const;
+export const ERR_GAP_REPORT = 'gap_reported' as const;
 
-// --- Factory functions ---
+export type StaticContentErrorId =
+  | typeof ERR_LOCALE_NOT_FOUND
+  | typeof ERR_PAGE_NOT_FOUND
+  | typeof ERR_INVALID_DATE
+  | typeof ERR_INVALID_INPUT
+  | typeof ERR_INTERNAL_LINK_UNRESOLVED
+  | typeof ERR_SOURCE_LOCALE_MISSING
+  | typeof ERR_INVALID_AUDIT
+  | typeof ERR_GAP_REPORT;
 
-/**
- * Creates a new link object with label, href, and internal flag.
- */
+export const STATIC_CONTENT_ERROR_IDS: readonly StaticContentErrorId[] = [
+  ERR_LOCALE_NOT_FOUND,
+  ERR_PAGE_NOT_FOUND,
+  ERR_INVALID_DATE,
+  ERR_INVALID_INPUT,
+  ERR_INTERNAL_LINK_UNRESOLVED,
+  ERR_SOURCE_LOCALE_MISSING,
+  ERR_INVALID_AUDIT,
+  ERR_GAP_REPORT,
+] as const;
+
+export const PAGE_TYPE_HOME = 'home' as const;
+export const PAGE_TYPE_ABOUT = 'about' as const;
+export const PAGE_TYPE_FAQ = 'faq' as const;
+export const PAGE_TYPE_NAVIGATION = 'navigation' as const;
+export const PAGE_TYPE_CONTACT = 'contact' as const;
+
+export type KnownPageType =
+  | typeof PAGE_TYPE_HOME
+  | typeof PAGE_TYPE_ABOUT
+  | typeof PAGE_TYPE_FAQ
+  | typeof PAGE_TYPE_NAVIGATION
+  | typeof PAGE_TYPE_CONTACT;
+
+export const KNOWN_PAGE_TYPES: readonly KnownPageType[] = [
+  PAGE_TYPE_HOME,
+  PAGE_TYPE_ABOUT,
+  PAGE_TYPE_FAQ,
+  PAGE_TYPE_NAVIGATION,
+  PAGE_TYPE_CONTACT,
+] as const;
+
 export function createLink(label: string, href: string, isInternal: boolean = true): Link {
   if (!label || label.trim() === '') {
     throw new Error('Link label must be a non-empty string.');
@@ -75,9 +123,6 @@ export function createLink(label: string, href: string, isInternal: boolean = tr
   return { label: label.trim(), href: href.trim(), isInternal };
 }
 
-/**
- * Creates a new section with heading, paragraphs, and bullets.
- */
 export function createSection(
   heading: string,
   paragraphs: readonly string[] = [],
@@ -88,14 +133,11 @@ export function createSection(
   }
   return {
     heading: heading.trim(),
-    paragraphs: paragraphs.map(p => p.trim()).filter(p => p !== ''),
-    bullets: bullets.map(b => b.trim()).filter(b => b !== ''),
+    paragraphs: paragraphs.map((p) => p.trim()).filter((p) => p !== ''),
+    bullets: bullets.map((b) => b.trim()).filter((b) => b !== ''),
   };
 }
 
-/**
- * Creates a new page definition with all required fields.
- */
 export function createPageDefinition(
   title: string,
   description: string,
@@ -123,9 +165,6 @@ export function createPageDefinition(
   };
 }
 
-/**
- * Creates a new locale content object.
- */
 export function createLocaleContent(localeCode: string, pages: Record<string, PageDefinition> = {}): LocaleContent {
   if (!localeCode || localeCode.trim() === '') {
     throw new Error('Locale code must be a non-empty string.');
@@ -133,77 +172,120 @@ export function createLocaleContent(localeCode: string, pages: Record<string, Pa
   return { localeCode: localeCode.trim(), pages: { ...pages } };
 }
 
-/**
- * Creates initial static content state with source locale.
- * Source locale must be provided explicitly; no hardcoded default.
- */
-export function createStaticContentState(sourceLocale: string): StaticContentState {
+export function createStaticContentState(
+  sourceLocale: string,
+  initialLocales: Record<string, LocaleContent> = {}
+): StaticContentState {
   if (!sourceLocale || sourceLocale.trim() === '') {
     throw new Error('Source locale must be a non-empty string.');
   }
+  const normalizedSourceLocale = sourceLocale.trim();
+  const locales: Record<string, LocaleContent> = { ...initialLocales };
+  locales[normalizedSourceLocale] = locales[normalizedSourceLocale] ?? createLocaleContent(normalizedSourceLocale, {});
   return {
-    sourceLocale,
-    locales: {},
+    sourceLocale: normalizedSourceLocale,
+    locales,
   };
 }
 
-// --- Validation functions ---
-
 function isValidDate(dateString: string): boolean {
-  const date = new Date(dateString);
-  return date instanceof Date && !isNaN(date.getTime()) && dateString === date.toISOString().split('T')[0];
+  if (!dateString || typeof dateString !== 'string') {
+    return false;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return false;
+  }
+  const date = new Date(dateString + 'T00:00:00.000Z');
+  if (isNaN(date.getTime())) {
+    return false;
+  }
+  return date.toISOString().slice(0, 10) === dateString;
 }
 
-/**
- * Validates that a locale exists in the state.
- */
 export function validateLocaleExists(
   state: StaticContentState,
   localeCode: string
 ): LocaleValidationResult {
   if (!localeCode || localeCode.trim() === '') {
-    return { success: false, error: 'Locale code must be a non-empty string.' };
+    return { success: false, error: ERR_INVALID_INPUT };
   }
   if (!state.locales[localeCode]) {
-    return { success: false, error: `Locale ${localeCode} not found in state.` };
+    return { success: false, error: ERR_LOCALE_NOT_FOUND };
   }
   return { success: true, localeCode };
 }
 
-/**
- * Validates that a page type exists in a locale.
- */
 export function validatePageExists(
   locale: LocaleContent,
   pageType: string
 ): PageValidationResult {
   if (!pageType || pageType.trim() === '') {
-    return { success: false, error: 'Page type must be a non-empty string.' };
+    return { success: false, error: ERR_INVALID_INPUT };
   }
   if (!locale.pages[pageType]) {
-    return { success: false, error: `Page type ${pageType} not found in locale ${locale.localeCode}.` };
+    return { success: false, error: ERR_PAGE_NOT_FOUND };
   }
   return { success: true, pageType };
 }
 
-// --- Core capability functions ---
+export function isPageSuccess(result: PageResult): result is { readonly success: true; readonly page: PageDefinition; readonly gap?: GapReport } {
+  return result.success === true;
+}
 
-/**
- * Adds a new locale to the static content state.
- * Returns new state; does not mutate input.
- */
+export function isGapReported(gap: GapReport | undefined): boolean {
+  return gap !== undefined && gap.reported === true;
+}
+
+export function createGapReport(
+  localeCode: string,
+  pageType: string,
+  fallbackLocale: string
+): GapReport {
+  if (!localeCode || localeCode.trim() === '') {
+    throw new Error('Gap report localeCode must be a non-empty string.');
+  }
+  if (!pageType || pageType.trim() === '') {
+    throw new Error('Gap report pageType must be a non-empty string.');
+  }
+  if (!fallbackLocale || fallbackLocale.trim() === '') {
+    throw new Error('Gap report fallbackLocale must be a non-empty string.');
+  }
+  return {
+    localeCode,
+    pageType,
+    fallbackLocale,
+    reported: true,
+  };
+}
+
 export function addLocale(
   state: StaticContentState,
-  localeContent: LocaleContent
+  localeContent: LocaleContent,
+  audit: (locale: LocaleContent) => boolean = () => true
 ): StaticContentState {
   if (!localeContent.localeCode || localeContent.localeCode.trim() === '') {
     throw new Error('Locale code must be a non-empty string.');
   }
-  if (state.locales[localeContent.localeCode]) {
-    throw new Error(`Locale ${localeContent.localeCode} already exists.`);
-  }
   if (localeContent.localeCode === state.sourceLocale) {
-    throw new Error('Cannot add source locale as a new locale.');
+    return state;
+  }
+  if (state.locales[localeContent.localeCode]) {
+    return state;
+  }
+
+  let auditSucceeded = false;
+  let auditThrew = false;
+  try {
+    auditSucceeded = audit(localeContent);
+  } catch {
+    auditThrew = true;
+    auditSucceeded = false;
+  }
+  if (auditThrew) {
+    throw new Error(ERR_INVALID_AUDIT);
+  }
+  if (auditSucceeded !== true) {
+    return state;
   }
 
   return {
@@ -215,18 +297,31 @@ export function addLocale(
   };
 }
 
-/**
- * Adds a page definition to a locale.
- * Returns new locale content; does not mutate input.
- */
 export function addPageToLocale(
   locale: LocaleContent,
   pageType: string,
-  page: PageDefinition
+  page: PageDefinition,
+  audit: (pageType: string, page: PageDefinition) => boolean = () => true
 ): LocaleContent {
   if (!pageType || pageType.trim() === '') {
     throw new Error('Page type must be a non-empty string.');
   }
+
+  let auditSucceeded = false;
+  let auditThrew = false;
+  try {
+    auditSucceeded = audit(pageType, page);
+  } catch {
+    auditThrew = true;
+    auditSucceeded = false;
+  }
+  if (auditThrew) {
+    throw new Error(ERR_INVALID_AUDIT);
+  }
+  if (auditSucceeded !== true) {
+    return locale;
+  }
+
   return {
     ...locale,
     pages: {
@@ -236,56 +331,85 @@ export function addPageToLocale(
   };
 }
 
-/**
- * Gets a page from a locale with fallback to source language.
- * Reports gap if page type is missing in requested locale (locale must exist).
- * Does NOT fallback if the locale itself is missing.
- */
 export function getPage(
   state: StaticContentState,
   localeCode: string,
   pageType: string
 ): PageResult {
   if (!localeCode || localeCode.trim() === '') {
-    return { success: false, error: 'Locale code must be a non-empty string.' };
+    return { success: false, error: ERR_INVALID_INPUT };
   }
   if (!pageType || pageType.trim() === '') {
-    return { success: false, error: 'Page type must be a non-empty string.' };
+    return { success: false, error: ERR_INVALID_INPUT };
+  }
+
+  const sourceLocaleContent = state.locales[state.sourceLocale];
+  if (!sourceLocaleContent) {
+    return { success: false, error: ERR_SOURCE_LOCALE_MISSING };
   }
 
   const locale = state.locales[localeCode];
   if (!locale) {
-    // Locale does not exist: fail-closed, no fallback
-    return { success: false, error: `Locale ${localeCode} not found in state.` };
+    return { success: false, error: ERR_LOCALE_NOT_FOUND };
   }
 
-  // Locale exists; check for page
   if (locale.pages[pageType]) {
     return { success: true, page: locale.pages[pageType] };
   }
 
-  // Page type missing in this locale: fallback to source language and report gap
-  const sourceLocale = state.locales[state.sourceLocale];
-  if (sourceLocale && sourceLocale.pages[pageType]) {
-    const gapReport: GapReport = {
-      localeCode,
-      pageType,
-      fallbackLocale: state.sourceLocale,
-    };
+  const sourcePage = sourceLocaleContent.pages[pageType];
+  if (sourcePage) {
+    const gapReport: GapReport = createGapReport(localeCode, pageType, state.sourceLocale);
     return {
       success: true,
-      page: sourceLocale.pages[pageType],
+      page: sourcePage,
       gap: gapReport,
     };
   }
 
-  return { success: false, error: `Page type ${pageType} not found in locale ${localeCode} or source locale.` };
+  return { success: false, error: ERR_PAGE_NOT_FOUND };
 }
 
-/**
- * Resolves internal links within a specific locale.
- * Ensures links point to pages that exist in the same locale.
- */
+export function reportMissingPage(
+  state: StaticContentState,
+  localeCode: string,
+  pageType: string
+): PageResult {
+  if (!localeCode || localeCode.trim() === '') {
+    return { success: false, error: ERR_INVALID_INPUT };
+  }
+  if (!pageType || pageType.trim() === '') {
+    return { success: false, error: ERR_INVALID_INPUT };
+  }
+
+  const sourceLocaleContent = state.locales[state.sourceLocale];
+  if (!sourceLocaleContent) {
+    return { success: false, error: ERR_SOURCE_LOCALE_MISSING };
+  }
+
+  const locale = state.locales[localeCode];
+  if (!locale) {
+    return { success: false, error: ERR_LOCALE_NOT_FOUND };
+  }
+
+  const hasLocalPage = locale.pages[pageType] !== undefined;
+  if (hasLocalPage) {
+    return { success: true, page: locale.pages[pageType] };
+  }
+
+  const sourcePage = sourceLocaleContent.pages[pageType];
+  if (sourcePage) {
+    const gapReport: GapReport = createGapReport(localeCode, pageType, state.sourceLocale);
+    return {
+      success: true,
+      page: sourcePage,
+      gap: gapReport,
+    };
+  }
+
+  return { success: false, error: ERR_PAGE_NOT_FOUND };
+}
+
 export function resolveInternalLinks(
   state: StaticContentState,
   localeCode: string,
@@ -305,7 +429,7 @@ export function resolveInternalLinks(
       if (pageResult.success) {
         resolvedPrimaryLinks.push(link);
       } else {
-        return { success: false, error: `Internal link ${link.href} could not be resolved in locale ${localeCode}.` };
+        return { success: false, error: ERR_INTERNAL_LINK_UNRESOLVED };
       }
     } else {
       resolvedPrimaryLinks.push(link);
@@ -318,7 +442,7 @@ export function resolveInternalLinks(
       if (pageResult.success) {
         resolvedRelatedLinks.push(link);
       } else {
-        return { success: false, error: `Internal link ${link.href} could not be resolved in locale ${localeCode}.` };
+        return { success: false, error: ERR_INTERNAL_LINK_UNRESOLVED };
       }
     } else {
       resolvedRelatedLinks.push(link);
@@ -334,24 +458,23 @@ export function resolveInternalLinks(
   return { success: true, page: resolvedPage };
 }
 
-/**
- * Renders a page: loads it (with fallback) and resolves internal links in the page's own locale.
- * Returns the rendered page, the locale it was served from, and an optional gap report.
- */
 export function renderPage(
   state: StaticContentState,
   localeCode: string,
   pageType: string
 ): RenderResult {
+  const localeValidation = validateLocaleExists(state, localeCode);
+  if (!localeValidation.success) {
+    return { success: false, error: localeValidation.error };
+  }
+
   const pageResult = getPage(state, localeCode, pageType);
   if (!pageResult.success) {
     return { success: false, error: pageResult.error };
   }
 
-  // Determine the locale that actually served the page
   const servedLocale = pageResult.gap ? pageResult.gap.fallbackLocale : localeCode;
 
-  // Resolve internal links in the served locale (so navigation matches body language)
   const resolveResult = resolveInternalLinks(state, servedLocale, pageResult.page);
   if (!resolveResult.success) {
     return { success: false, error: resolveResult.error };
@@ -365,105 +488,104 @@ export function renderPage(
   };
 }
 
-/**
- * Validates that all declared locales and page types are loaded and rendered,
- * and that internal links are resolved within each locale.
- *
- * Renders every page in every locale; for non-source locales, uses the requested locale
- * (so a gap is recorded when a page type is missing in that locale).
- */
-export function validateContentCompleteness(state: StaticContentState): {
-  readonly localeValidations: LocaleValidationResult[];
-  readonly pageValidations: PageValidationResult[];
-  readonly missingPages: GapReport[];
-  readonly renderingErrors: string[];
-} {
+export function validateContentCompleteness(state: StaticContentState): ContentCompletenessResult {
   const localeValidations: LocaleValidationResult[] = [];
   const pageValidations: PageValidationResult[] = [];
   const missingPages: GapReport[] = [];
-  const renderingErrors: string[] = [];
+  const renderFailures: string[] = [];
 
-  // Validate every declared locale
-  for (const localeCode of Object.keys(state.locales)) {
+  if (!state.sourceLocale || state.sourceLocale.trim() === '') {
+    return { success: false, error: ERR_SOURCE_LOCALE_MISSING };
+  }
+  if (!state.locales[state.sourceLocale]) {
+    return { success: false, error: ERR_SOURCE_LOCALE_MISSING };
+  }
+
+  const localeCodes = Object.keys(state.locales);
+  const allPageTypes = new Set<string>(KNOWN_PAGE_TYPES);
+  for (const localeCode of localeCodes) {
     const locale = state.locales[localeCode];
-    if (locale) {
-      localeValidations.push({ success: true, localeCode });
-
-      // Check each page in this locale can be rendered (loads + links resolve)
-      for (const pageType of Object.keys(locale.pages)) {
-        const renderResult = renderPage(state, localeCode, pageType);
-        if (!renderResult.success) {
-          renderingErrors.push(`Locale ${localeCode}, page ${pageType}: ${renderResult.error}`);
-        }
-        // Also record page existence validation
-        pageValidations.push({ success: true, pageType });
-      }
-
-      // Detect pages missing in this locale compared to source
-      const sourceLocale = state.locales[state.sourceLocale];
-      if (sourceLocale && localeCode !== state.sourceLocale) {
-        for (const pageType of Object.keys(sourceLocale.pages)) {
-          if (!locale.pages[pageType]) {
-            missingPages.push({
-              localeCode,
-              pageType,
-              fallbackLocale: state.sourceLocale,
-            });
-          }
-        }
-      }
-    } else {
-      localeValidations.push({ success: false, error: `Locale ${localeCode} not found in state.` });
+    if (!locale) {
+      continue;
+    }
+    for (const pageType of Object.keys(locale.pages)) {
+      allPageTypes.add(pageType);
     }
   }
 
-  // Validate source locale pages explicitly
-  const sourceLocale = state.locales[state.sourceLocale];
-  if (sourceLocale) {
-    for (const pageType of Object.keys(sourceLocale.pages)) {
-      const validation = validatePageExists(sourceLocale, pageType);
-      pageValidations.push(validation);
+  const sourcePages = state.locales[state.sourceLocale]?.pages;
+
+  for (const localeCode of localeCodes) {
+    const locale = state.locales[localeCode];
+    if (!locale) {
+      localeValidations.push({ success: false, error: ERR_LOCALE_NOT_FOUND });
+      continue;
+    }
+
+    const localeValidation = validateLocaleExists(state, localeCode);
+    localeValidations.push(localeValidation);
+
+    for (const pageType of allPageTypes) {
+      const pageValidation = validatePageExists(locale, pageType);
+      pageValidations.push(pageValidation);
+
+      const renderResult = renderPage(state, localeCode, pageType);
+      if (!renderResult.success) {
+        renderFailures.push(renderResult.error);
+      }
+
+      if (!locale.pages[pageType]) {
+        const sourceHasPage = sourcePages && sourcePages[pageType] !== undefined;
+        if (sourceHasPage) {
+          missingPages.push(createGapReport(localeCode, pageType, state.sourceLocale));
+        }
+      }
     }
   }
 
   return {
+    success: true,
     localeValidations,
     pageValidations,
     missingPages,
-    renderingErrors,
+    renderFailures,
   };
 }
 
-/**
- * Generates table of contents for a page in the same language as the body.
- * Ensures TOC matches the page's section headings.
- */
 export function generateTableOfContents(page: PageDefinition): readonly string[] {
-  return page.sections.map(section => section.heading);
+  return page.sections.map((section) => section.heading);
 }
 
-/**
- * Gets the navigation structure for a locale, keeping it in the same language as the body.
- */
 export function getLocaleNavigation(
   state: StaticContentState,
   localeCode: string
 ): PageResult {
-  const pageResult = getPage(state, localeCode, 'navigation');
+  const pageResult = getPage(state, localeCode, PAGE_TYPE_NAVIGATION);
   if (!pageResult.success) {
     return pageResult;
   }
 
-  return resolveInternalLinks(state, localeCode, pageResult.page);
+  const servedLocale = pageResult.gap ? pageResult.gap.fallbackLocale : localeCode;
+  const resolveResult = resolveInternalLinks(state, servedLocale, pageResult.page);
+
+  if (!resolveResult.success) {
+    return resolveResult;
+  }
+
+  if (!pageResult.gap) {
+    return resolveResult;
+  }
+
+  return {
+    ...resolveResult,
+    gap: pageResult.gap,
+  };
 }
 
-/**
- * Removes a locale from the static content state.
- * Returns new state; does not mutate input.
- */
 export function removeLocale(
   state: StaticContentState,
-  localeCode: string
+  localeCode: string,
+  audit: (localeCode: string) => boolean = () => true
 ): StaticContentState {
   if (!localeCode || localeCode.trim() === '') {
     throw new Error('Locale code must be a non-empty string.');
@@ -473,6 +595,21 @@ export function removeLocale(
   }
   if (!state.locales[localeCode]) {
     throw new Error(`Locale ${localeCode} not found in state.`);
+  }
+
+  let auditSucceeded = false;
+  let auditThrew = false;
+  try {
+    auditSucceeded = audit(localeCode);
+  } catch {
+    auditThrew = true;
+    auditSucceeded = false;
+  }
+  if (auditThrew) {
+    throw new Error(ERR_INVALID_AUDIT);
+  }
+  if (auditSucceeded !== true) {
+    return state;
   }
 
   const newLocales: Record<string, LocaleContent> = {};
@@ -491,22 +628,10 @@ export function removeLocale(
   };
 }
 
-// --- Composite workflow function ---
-
-/**
- * Exercises the complete localised static content workflow.
- * Creates state, adds locales and pages, validates, and retrieves content.
- * Source locale is provided explicitly; no hardcoded defaults.
- */
 export function exerciseLocalisedStaticContentWorkflow(): {
   readonly state: StaticContentState;
   readonly retrievedPage: PageResult;
-  readonly completeness: {
-    readonly localeValidations: LocaleValidationResult[];
-    readonly pageValidations: PageValidationResult[];
-    readonly missingPages: GapReport[];
-    readonly renderingErrors: string[];
-  };
+  readonly completeness: ContentCompletenessResult;
 } {
   let state = createStaticContentState('en');
 
@@ -514,8 +639,8 @@ export function exerciseLocalisedStaticContentWorkflow(): {
     createSection('Introduction', ['This is the introduction paragraph.'], ['First bullet point', 'Second bullet point']),
     createSection('Details', ['Detailed information goes here.'], []),
   ];
-  
-  const enPage = createPageDefinition(
+
+  const enHome = createPageDefinition(
     'Home Page',
     'Welcome to our website',
     '2023-10-01',
@@ -524,20 +649,56 @@ export function exerciseLocalisedStaticContentWorkflow(): {
     enSections
   );
 
-  const enLocale = createLocaleContent('en', { home: enPage });
-  state = {
-    ...state,
-    locales: {
-      ...state.locales,
-      [enLocale.localeCode]: enLocale,
-    },
-  };
+  const enAbout = createPageDefinition(
+    'About Us',
+    'Learn more about us',
+    '2023-10-01',
+    [],
+    [],
+    []
+  );
+
+  const enFaq = createPageDefinition(
+    'FAQ',
+    'Frequently asked questions',
+    '2023-10-01',
+    [],
+    [],
+    []
+  );
+
+  const enNavigation = createPageDefinition(
+    'Navigation',
+    'Site navigation',
+    '2023-10-01',
+    [createLink('Home', 'home', true), createLink('About', 'about', true), createLink('FAQ', 'faq', true)],
+    [],
+    []
+  );
+
+  const enContact = createPageDefinition(
+    'Contact',
+    'Contact information',
+    '2023-10-01',
+    [],
+    [],
+    []
+  );
+
+  const enLocale = createLocaleContent('en', {
+    home: enHome,
+    about: enAbout,
+    faq: enFaq,
+    navigation: enNavigation,
+    contact: enContact,
+  });
+  state = addLocale(state, enLocale);
 
   const esSections = [
     createSection('Introducción', ['Este es el párrafo de introducción.'], ['Primer punto de lista', 'Segundo punto de lista']),
     createSection('Detalles', ['La información detallada va aquí.'], []),
   ];
-  
+
   const esPage = createPageDefinition(
     'Página de Inicio',
     'Bienvenido a nuestro sitio web',

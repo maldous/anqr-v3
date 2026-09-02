@@ -27,9 +27,6 @@ test("mcpdeliverycontracts", () => {
 
 test("mcpdeliveryerrormodel", () => {
   const config = capability.createDefaultConfig();
-  const tool = config.capabilities.tools.find(
-    (t) => t.name === capability.BASIC_TOOL_NAME
-  )!;
 
   const auditCalls: capability.ToolValidationResult[] = [];
   const outcome = capability.generateBasicQR(
@@ -47,15 +44,24 @@ test("mcpdeliveryerrormodel", () => {
     assert.equal(outcome.field, "format");
     assert.match(outcome.message, /must be a string/);
   }
+
+  const noArtefact = outcome as { artefact?: string };
+  assert.equal(noArtefact.artefact, undefined);
 });
 
 test("mcpdeliverypermissions", () => {
   const config = capability.createDefaultConfig();
 
-  assert.deepEqual(
-    [...config.overlayPolicy.allowedOrigins],
-    ["self"]
-  );
+  assert.equal(capability.isAnonymousByDefault(config), true);
+
+  const perimeter = capability.validatePerimeterControls(config);
+  assert.equal(perimeter.success, true);
+  if (perimeter.success) {
+    assert.equal(perimeter.anonymousByDefault, true);
+    assert.equal(perimeter.policyAligned, true);
+  }
+
+  assert.equal(capability.overlayPolicyIsAdvertisedAsEnforced(config), true);
   assert.equal(config.capabilities.overlayFetchPolicy, "same-origin");
 
   const denied = capability.checkOverlayPolicy(
@@ -67,39 +73,54 @@ test("mcpdeliverypermissions", () => {
 
   const allowed = capability.checkOverlayPolicy("self", config);
   assert.equal(allowed.allowed, true);
-
-  const mismatch = capability.createDefaultConfig();
-  const mismatched = capability.validateCapabilitiesAgainstConfig(
-    {
-      ...config.capabilities,
-      overlayFetchPolicy: "any-origin"
-    },
-    mismatch
-  );
-  assert.equal(mismatched, false);
 });
 
 test("mcpdeliveryreadinessmodel", () => {
   const config = capability.createDefaultConfig();
-  const caps = config.capabilities;
 
-  const ok = capability.validateCapabilitiesAgainstConfig(caps, config);
-  assert.equal(ok, true);
+  const derived = capability.deriveCapabilitiesFromConfig(config);
+  assert.equal(derived, config.capabilities);
 
-  const advertisedTool: capability.Tool = {
+  const ok = capability.validateCapabilitiesAgainstConfig(
+    config.capabilities,
+    config
+  );
+  assert.equal(ok.success, true);
+  if (ok.success) {
+    assert.equal(ok.aligned, true);
+  }
+
+  const ghostTool: capability.Tool = {
     name: "ghost-tool",
     description: "Not present",
     parameters: [{ name: "data", type: "string", required: true }]
   };
   const ghostCaps: capability.CapabilitiesResource = {
-    ...caps,
-    tools: [...caps.tools, advertisedTool]
+    ...config.capabilities,
+    tools: [...config.capabilities.tools, ghostTool]
   };
-  const advertOk = capability.validateCapabilitiesAgainstConfig(
+  const advertFail = capability.validateCapabilitiesAgainstConfig(
     ghostCaps,
     config
   );
-  assert.equal(advertOk, false);
+  assert.equal(advertFail.success, false);
+  if (!advertFail.success) {
+    assert.equal(advertFail.aligned, false);
+    assert.equal(advertFail.field, "tools");
+  }
+
+  const missingFormat: capability.CapabilitiesResource = {
+    ...config.capabilities,
+    formats: [...config.capabilities.formats, "GIF"]
+  };
+  const formatFail = capability.validateCapabilitiesAgainstConfig(
+    missingFormat,
+    config
+  );
+  assert.equal(formatFail.success, false);
+  if (!formatFail.success) {
+    assert.equal(formatFail.field, "formats");
+  }
 
   const outcome = capability.generateBasicQR(
     { data: "x", format: "GIF" },
@@ -121,6 +142,8 @@ test("mcpdeliveryvalidation", () => {
     (t) => t.name === capability.ADVANCED_TOOL_NAME
   )!;
 
+  const auditCalls: capability.ToolValidationResult[] = [];
+
   const goodBasic: capability.GenerationInput = {
     data: "payload",
     format: "PNG",
@@ -128,7 +151,11 @@ test("mcpdeliveryvalidation", () => {
     margin: 4,
     errorCorrectionLevel: "M"
   };
-  const basicOk = capability.generateBasicQR(goodBasic, config, () => {});
+  const basicOk = capability.generateBasicQR(
+    goodBasic,
+    config,
+    (r) => auditCalls.push(r)
+  );
   assert.equal(basicOk.success, true);
   if (basicOk.success) {
     assert.match(basicOk.artefact, /^QR-/);
@@ -139,7 +166,11 @@ test("mcpdeliveryvalidation", () => {
     format: "PNG",
     size: 99999
   };
-  const basicFail = capability.generateBasicQR(sizeTooLarge, config, () => {});
+  const basicFail = capability.generateBasicQR(
+    sizeTooLarge,
+    config,
+    (r) => auditCalls.push(r)
+  );
   assert.equal(basicFail.success, false);
   if (basicFail.success === false) {
     assert.equal(basicFail.field, "size");
@@ -150,7 +181,11 @@ test("mcpdeliveryvalidation", () => {
     format: "PNG",
     overlay: { url: "self" }
   };
-  const advOk = capability.generateAdvancedQR(goodAdvanced, config, () => {});
+  const advOk = capability.generateAdvancedQR(
+    goodAdvanced,
+    config,
+    (r) => auditCalls.push(r)
+  );
   assert.equal(advOk.success, true);
   if (advOk.success) {
     assert.match(advOk.artefact, /^ADVANCED-QR-/);
@@ -161,7 +196,11 @@ test("mcpdeliveryvalidation", () => {
     format: "PNG",
     overlay: { url: "https://evil.example.com" }
   };
-  const advFail = capability.generateAdvancedQR(badAdvanced, config, () => {});
+  const advFail = capability.generateAdvancedQR(
+    badAdvanced,
+    config,
+    (r) => auditCalls.push(r)
+  );
   assert.equal(advFail.success, false);
   if (advFail.success === false) {
     assert.equal(advFail.field, "overlay.url");
@@ -175,13 +214,45 @@ test("mcpdeliveryvalidation", () => {
     assert.equal(result.success, true);
   }
 
+  const badInput = capability.validateToolInput(
+    { data: "x", format: 42 },
+    basicTool
+  );
+  assert.equal(badInput.success, false);
+  assert.equal(badInput.field, "format");
+
   const caps = config.capabilities;
-  assert.ok(caps.sizeRange.min <= caps.sizeRange.max);
-  assert.ok(caps.marginRange.min <= caps.marginRange.max);
-  assert.ok(caps.formats.length > 0);
-  assert.ok(caps.errorCorrectionLevels.length > 0);
-  assert.equal(
-    capability.validateCapabilitiesAgainstConfig(caps, config),
+
+  if (caps.sizeRange.min !== caps.sizeRange.max) {
+    assert.notEqual(
+      capability.validateCapabilitiesAgainstConfig(
+        {
+          ...caps,
+          sizeRange: {
+            min: caps.sizeRange.min,
+            max: caps.sizeRange.max + 1
+          }
+        },
+        config
+      ).success,
+      true
+    );
+  }
+
+  assert.notEqual(
+    capability.validateCapabilitiesAgainstConfig(
+      {
+        ...caps,
+        overlayFetchPolicy: "any-origin"
+      },
+      config
+    ).success,
     true
   );
+
+  const finalCheck = capability.validateCapabilitiesAgainstConfig(caps, config);
+  assert.equal(finalCheck.success, true);
+  if (finalCheck.success) {
+    assert.equal(finalCheck.aligned, true);
+  }
 });

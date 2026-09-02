@@ -1,6 +1,3 @@
-// Brand overlay capability module for ANQR presentation domain
-// Implements overlay modes, types, watermarks with validation and application
-
 export const overlayModes = [
   'center', 'blend', 'halftone', 'halftone-dithered', 'mosaic', 'gapfill',
   'brightness', 'duotone', 'subpixel', 'dithered', 'blue-noise', 'pixelate',
@@ -14,42 +11,44 @@ export type OverlayType = typeof overlayTypes[number];
 export const watermarkTypes = ['text', 'image', 'pattern'] as const;
 export type WatermarkType = typeof watermarkTypes[number];
 
+export const overlayFailureReasons = ['fetch', 'decode', 'place'] as const;
+export type OverlayFailureReason = typeof overlayFailureReasons[number];
+
 export interface OverlayConfig {
-  mode: OverlayMode;
-  type: OverlayType;
-  watermark?: WatermarkType;
-  url?: string;
-  maxBytes?: number;
-  maxMs?: number;
+  readonly mode: OverlayMode;
+  readonly type: OverlayType;
+  readonly watermark?: WatermarkType;
+  readonly url?: string;
+  readonly maxBytes?: number;
+  readonly maxMs?: number;
 }
 
 export interface OverlaySuccess {
-  status: 'success';
-  payload: string;
-  overlayApplied: OverlayMode;
+  readonly status: 'success';
+  readonly payload: string;
+  readonly overlayApplied: OverlayMode;
 }
 
 export interface OverlayFailure {
-  status: 'failure';
-  reason: 'fetch' | 'decode' | 'place';
-  detail: string;
+  readonly status: 'failure';
+  readonly reason: OverlayFailureReason;
+  readonly detail: string;
 }
 
 export type OverlayOutcome = OverlaySuccess | OverlayFailure;
 
 export interface OverlayPreview {
-  status: 'success' | 'failure';
-  previewData?: string;
-  reason?: string;
+  readonly status: 'success' | 'failure';
+  readonly previewData?: string;
+  readonly reason?: string;
 }
 
 export interface ModeValidation {
-  mode: OverlayMode;
-  valid: boolean;
-  payload?: string;
+  readonly mode: OverlayMode;
+  readonly valid: boolean;
+  readonly payload?: string;
 }
 
-// URL validation helpers
 const PRIVATE_RANGES = [
   { start: '10.0.0.0', end: '10.255.255.255' },
   { start: '172.16.0.0', end: '172.31.255.255' },
@@ -61,10 +60,10 @@ const PRIVATE_RANGES = [
 
 function ipToNumber(ip: string): number {
   const parts = ip.split('.');
-  return ((parseInt(parts[0]) << 24) |
-          (parseInt(parts[1]) << 16) |
-          (parseInt(parts[2]) << 8) |
-          parseInt(parts[3])) >>> 0;
+  return ((parseInt(parts[0], 10) << 24) |
+          (parseInt(parts[1], 10) << 16) |
+          (parseInt(parts[2], 10) << 8) |
+          parseInt(parts[3], 10)) >>> 0;
 }
 
 function isPrivateIp(hostname: string): boolean {
@@ -97,7 +96,6 @@ function validateRedirectChain(urls: readonly string[]): boolean {
   return true;
 }
 
-// Pure validation functions
 export function validateOverlayConfig(config: OverlayConfig): OverlayFailure | null {
   if (!overlayModes.includes(config.mode)) {
     return { status: 'failure', reason: 'decode', detail: `Invalid mode: ${config.mode}` };
@@ -105,10 +103,10 @@ export function validateOverlayConfig(config: OverlayConfig): OverlayFailure | n
   if (!overlayTypes.includes(config.type)) {
     return { status: 'failure', reason: 'decode', detail: `Invalid type: ${config.type}` };
   }
-  if (config.watermark && !watermarkTypes.includes(config.watermark)) {
+  if (config.watermark !== undefined && !watermarkTypes.includes(config.watermark)) {
     return { status: 'failure', reason: 'decode', detail: `Invalid watermark: ${config.watermark}` };
   }
-  if (config.url && !validateUrl(config.url)) {
+  if (config.url !== undefined && !validateUrl(config.url)) {
     return { status: 'failure', reason: 'fetch', detail: 'URL validation failed' };
   }
   if (config.maxBytes !== undefined && config.maxBytes <= 0) {
@@ -120,27 +118,29 @@ export function validateOverlayConfig(config: OverlayConfig): OverlayFailure | n
   return null;
 }
 
-// Audit function for mutation ordering
 export type OverlayAudit = (config: OverlayConfig) => OverlayFailure | null;
 
-// Mutation function that respects audit ordering
+function buildOverlayOutput(artefact: string, config: OverlayConfig): string {
+  return `${artefact}[overlay:${config.mode}]`;
+}
+
 export function applyOverlay(
   artefact: string,
   config: OverlayConfig,
   audit: OverlayAudit
 ): OverlayOutcome {
   const auditResult = audit(config);
-  if (auditResult) return auditResult;
+  if (auditResult !== null) {
+    return auditResult;
+  }
 
-  // Simulate overlay application
   return {
     status: 'success',
-    payload: `${artefact}[overlay:${config.mode}]`,
+    payload: buildOverlayOutput(artefact, config),
     overlayApplied: config.mode
   };
 }
 
-// Preview function showing export result
 export function previewOverlay(
   artefact: string,
   config: OverlayConfig,
@@ -153,7 +153,6 @@ export function previewOverlay(
   return { status: 'success', previewData: result.payload };
 }
 
-// Mode validation with representative artefacts
 const modeArtefacts: Record<OverlayMode, string> = {
   center: 'base[center]',
   blend: 'base[blend]',
@@ -185,7 +184,7 @@ export function validateMode(mode: OverlayMode): ModeValidation {
     url: 'https://example.com/overlay.png'
   };
   const auditResult = validateOverlayConfig(config);
-  if (auditResult) {
+  if (auditResult !== null) {
     return { mode, valid: false };
   }
   const result = applyOverlay(modeArtefacts[mode], config, validateOverlayConfig);
@@ -199,12 +198,32 @@ export function validateAllModes(): ModeValidation[] {
   return overlayModes.map(mode => validateMode(mode));
 }
 
-// Redirect validation helper
+export function refuseOverlay(
+  reason: OverlayFailureReason,
+  detail: string
+): OverlayFailure {
+  if (!overlayFailureReasons.includes(reason)) {
+    return { status: 'failure', reason: 'decode', detail: `Unknown refusal reason: ${detail}` };
+  }
+  return { status: 'failure', reason, detail };
+}
+
+export function refuseFetch(detail: string): OverlayFailure {
+  return refuseOverlay('fetch', detail);
+}
+
+export function refuseDecode(detail: string): OverlayFailure {
+  return refuseOverlay('decode', detail);
+}
+
+export function refusePlace(detail: string): OverlayFailure {
+  return refuseOverlay('place', detail);
+}
+
 export function validateRedirects(redirectChain: readonly string[]): boolean {
   return validateRedirectChain(redirectChain);
 }
 
-// URL validation helper
 export function isUrlSafe(url: string): boolean {
   return validateUrl(url);
 }

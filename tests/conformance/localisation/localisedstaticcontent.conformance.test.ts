@@ -1,190 +1,322 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 import * as capability from "../../../src/capabilities/localisation/localisedstaticcontent.ts";
 
+const buildLocaleWithKnownPages = (localeCode: string, titlePrefix: string): capability.LocaleContent => {
+  const pages: Record<string, capability.PageDefinition> = {};
+  for (const pageType of capability.KNOWN_PAGE_TYPES) {
+    const internalTarget =
+      pageType === capability.PAGE_TYPE_HOME ? capability.PAGE_TYPE_CONTACT : capability.PAGE_TYPE_HOME;
+    const section = capability.createSection(
+      `${titlePrefix} ${pageType} section`,
+      [`${titlePrefix} paragraph`],
+      [`${titlePrefix} bullet`]
+    );
+    pages[pageType] = capability.createPageDefinition(
+      `${titlePrefix} ${pageType} title`,
+      `${titlePrefix} ${pageType} description`,
+      "2023-10-01",
+      [capability.createLink(`${titlePrefix} link`, internalTarget, true)],
+      [capability.createLink("External", "https://example.com", false)],
+      [section]
+    );
+  }
+
+  return capability.createLocaleContent(localeCode, pages);
+};
+
 test("localisedstaticcontentcontracts", () => {
-  const section = capability.createSection(
-    "Introduction",
-    ["This is the first paragraph."],
-    ["First bullet", "Second bullet"]
-  );
-  const internalLink = capability.createLink("About", "/about", true);
-  const externalLink = capability.createLink("External", "https://example.com", false);
-  const page = capability.createPageDefinition(
-    "Home Page",
-    "Welcome",
-    "2023-10-01",
-    [internalLink],
-    [externalLink],
-    [section]
-  );
+  const sections = [
+    capability.createSection("Intro", ["Paragraph one", "Paragraph two"], ["Bullet one", "Bullet two"]),
+    capability.createSection("Details", ["Final paragraph."], ["Point one", "Point two"]),
+  ];
 
-  assert.strictEqual(page.title, "Home Page");
-  assert.strictEqual(page.description, "Welcome");
-  assert.strictEqual(page.lastUpdated, "2023-10-01");
-  assert.strictEqual(page.primaryLinks.length, 1);
-  assert.strictEqual(page.relatedLinks.length, 1);
-  assert.strictEqual(page.sections.length, 1);
-  assert.strictEqual(page.sections[0]!.heading, "Introduction");
-  assert.strictEqual(page.sections[0]!.paragraphs.length, 1);
-  assert.strictEqual(page.sections[0]!.bullets.length, 2);
+  const localePages: Record<string, capability.PageDefinition> = {};
+  for (const pageType of capability.KNOWN_PAGE_TYPES) {
+    localePages[pageType] = capability.createPageDefinition(
+      `${pageType} title`,
+      `${pageType} description`,
+      "2023-10-01",
+      [
+        capability.createLink("Next", capability.PAGE_TYPE_ABOUT, true),
+        capability.createLink("External", "https://example.com", false),
+      ],
+      [capability.createLink("Related", capability.PAGE_TYPE_HOME, true)],
+      sections
+    );
+  }
+  const locale = capability.createLocaleContent("en", localePages);
 
-  // Negative case: invalid date must be rejected.
+  assert.strictEqual(Object.keys(locale.pages).length, capability.KNOWN_PAGE_TYPES.length);
+  for (const pageType of capability.KNOWN_PAGE_TYPES) {
+    const page = locale.pages[pageType];
+    assert.ok(page);
+    assert.strictEqual(page.title, `${pageType} title`);
+    assert.strictEqual(page.description, `${pageType} description`);
+    assert.strictEqual(page.lastUpdated, "2023-10-01");
+    assert.strictEqual(page.primaryLinks.length, 2);
+    assert.strictEqual(page.relatedLinks.length, 1);
+    assert.strictEqual(page.sections.length, 2);
+    assert.deepStrictEqual(
+      page.sections.map((section) => section.heading),
+      ["Intro", "Details"]
+    );
+    assert.deepStrictEqual(page.sections[0]!.paragraphs, ["Paragraph one", "Paragraph two"]);
+    assert.deepStrictEqual(page.sections[0]!.bullets, ["Bullet one", "Bullet two"]);
+    assert.deepStrictEqual(page.sections[1]!.paragraphs, ["Final paragraph."]);
+    assert.deepStrictEqual(page.sections[1]!.bullets, ["Point one", "Point two"]);
+    assert.deepStrictEqual(capability.generateTableOfContents(page), ["Intro", "Details"]);
+  }
+
   assert.throws(
-    () => capability.createPageDefinition("Bad", "Bad", "not-a-date"),
-    /ISO date/,
-    "An invalid lastUpdated must be rejected"
-  );
-
-  // Negative case: empty heading must be rejected.
-  assert.throws(
-    () => capability.createSection(""),
-    /non-empty/,
-    "An empty section heading must be rejected"
+    () => capability.createPageDefinition("Bad", "Bad", "2023-02-30"),
+    /ISO date/
   );
 });
 
 test("localisedstaticcontenterrormodel", () => {
-  const page = capability.createPageDefinition("Home", "Welcome", "2023-10-01");
-  const enLocale = capability.createLocaleContent("en", { home: page });
-  const initialState = capability.createStaticContentState("en");
-  const stateWithEn = capability.addLocale(initialState, enLocale);
+  const sourceHome = capability.createPageDefinition("Home", "Welcome", "2023-10-01");
+  const sourceAbout = capability.createPageDefinition("About", "About us", "2023-10-01");
+  const sourceContact = capability.createPageDefinition("Contact", "Contact us", "2023-10-01");
+  const sourceNavigation = capability.createPageDefinition(
+    "Navigation",
+    "Site navigation",
+    "2023-10-01",
+    [capability.createLink("Home", "home", true), capability.createLink("About", "about", true)],
+    [],
+    []
+  );
+  const sourceLocale = capability.createLocaleContent("en", {
+    home: sourceHome,
+    about: sourceAbout,
+    contact: sourceContact,
+    navigation: sourceNavigation,
+  });
 
-  const esLocale = capability.createLocaleContent("es", {});
-  const stateWithEs = capability.addLocale(stateWithEn, esLocale);
+  const initialState = capability.createStaticContentState("en", { en: sourceLocale });
+  const state = capability.addLocale(initialState, capability.createLocaleContent("es", {}));
 
-  const result = capability.getPage(stateWithEs, "es", "home");
-  assert.strictEqual(result.success, true);
-  if (result.success) {
-    assert.strictEqual(result.page.title, "Home");
-    assert.ok(result.gap, "Expected a gap report when falling back to source locale");
-    if (result.gap !== undefined) {
-      assert.strictEqual(result.gap.localeCode, "es");
-      assert.strictEqual(result.gap.pageType, "home");
-      assert.strictEqual(result.gap.fallbackLocale, "en");
-    }
-  } else {
-    assert.fail("Expected fallback to succeed with gap report");
+  const fallback = capability.getPage(state, "es", "contact");
+  assert.strictEqual(fallback.success, true);
+  if (fallback.success) {
+    assert.ok(fallback.gap);
+    assert.deepStrictEqual(fallback.gap, {
+      localeCode: "es",
+      pageType: "contact",
+      fallbackLocale: "en",
+      reported: true,
+    });
+    assert.strictEqual(fallback.page.title, sourceContact.title);
+    assert.strictEqual(fallback.page.description, sourceContact.description);
+    assert.strictEqual(capability.isGapReported(fallback.gap), true);
   }
 
-  const errorResult = capability.getPage(stateWithEs, "es", "nonexistent");
-  assert.strictEqual(errorResult.success, false);
-  if (!errorResult.success) {
-    assert.ok(errorResult.error.includes("not found"));
-  } else {
-    assert.fail("Expected lookup of missing page to fail");
+  const renderedFallback = capability.renderPage(state, "es", "contact");
+  assert.strictEqual(renderedFallback.success, true);
+  if (renderedFallback.success) {
+    assert.strictEqual(renderedFallback.localeCode, "en");
+    assert.ok(renderedFallback.gap);
+    assert.strictEqual(renderedFallback.gap.pageType, "contact");
+  }
+
+  const missingInBoth = capability.getPage(state, "es", "not-a-known-page");
+  assert.strictEqual(missingInBoth.success, false);
+  if (!missingInBoth.success) {
+    assert.strictEqual(missingInBoth.error, capability.ERR_PAGE_NOT_FOUND);
+  }
+
+  const unknownLocale = capability.getPage(state, "fr", "home");
+  assert.strictEqual(unknownLocale.success, false);
+  if (!unknownLocale.success) {
+    assert.strictEqual(unknownLocale.error, capability.ERR_LOCALE_NOT_FOUND);
+  }
+
+  const emptyPage = capability.getPage(state, "es", "contact");
+  assert.ok(emptyPage.success);
+  if (emptyPage.success) {
+    assert.notStrictEqual(emptyPage.page.title, "");
+    assert.notStrictEqual(emptyPage.page.description, "");
+    assert.notStrictEqual(emptyPage.page.lastUpdated, "");
   }
 });
 
 test("localisedstaticcontentstatemodel", () => {
-  const initialState = capability.createStaticContentState("en");
-  const originalLocales = initialState.locales;
+  const sourceLocale = capability.createLocaleContent("en", {
+    home: capability.createPageDefinition("Home", "Welcome", "2023-10-01"),
+    about: capability.createPageDefinition("About", "About", "2023-10-01"),
+  });
 
-  const page = capability.createPageDefinition("Title", "Desc", "2023-10-01");
-  const locale = capability.createLocaleContent("en", { home: page });
-  const newState = capability.addLocale(initialState, locale);
+  const baselineState = capability.createStaticContentState("en", { en: sourceLocale });
 
-  assert.notStrictEqual(initialState, newState, "Adding a locale must return a new state object");
-  assert.strictEqual(initialState.locales, originalLocales, "Original state must not be mutated");
-  assert.ok(newState.locales["en"], "New state must contain the added locale");
-  assert.strictEqual(newState.sourceLocale, "en");
+  const baselineRender = capability.renderPage(baselineState, "en", capability.PAGE_TYPE_HOME);
+  assert.strictEqual(baselineRender.success, true);
 
-  // Adding a page to a locale must not mutate the locale either.
-  const page2 = capability.createPageDefinition("Title 2", "Desc 2", "2023-10-02");
-  const updatedLocale = capability.addPageToLocale(newState.locales["en"]!, "about", page2);
-  assert.notStrictEqual(updatedLocale, newState.locales["en"]);
-  assert.ok(!newState.locales["en"]!.pages["about"], "Original locale must not gain the new page");
-  assert.ok(updatedLocale.pages["about"], "Returned locale must contain the added page");
+  const localeToAdd = capability.createLocaleContent("es", {
+    home: capability.createPageDefinition("Inicio", "Bienvenido", "2023-10-02"),
+    about: capability.createPageDefinition("Sobre", "Acerca", "2023-10-02"),
+  });
+  const stateWithLocale = capability.addLocale(baselineState, localeToAdd);
+
+  assert.notStrictEqual(stateWithLocale, baselineState);
+  assert.strictEqual(baselineState.locales["es"], undefined);
+  assert.ok(stateWithLocale.locales["es"]);
+  assert.deepStrictEqual(stateWithLocale.locales["en"], baselineState.locales["en"]);
+
+  const renderedAfterSource = capability.renderPage(stateWithLocale, "en", capability.PAGE_TYPE_HOME);
+  assert.strictEqual(renderedAfterSource.success, true);
+  if (renderedAfterSource.success && baselineRender.success) {
+    assert.deepStrictEqual(renderedAfterSource.page, baselineRender.page);
+  }
+
+  const renderedInAddedLocale = capability.renderPage(stateWithLocale, "es", capability.PAGE_TYPE_HOME);
+  assert.strictEqual(renderedInAddedLocale.success, true);
+  if (renderedInAddedLocale.success) {
+    assert.strictEqual(renderedInAddedLocale.localeCode, "es");
+    assert.strictEqual(renderedInAddedLocale.page.title, "Inicio");
+  }
+
+  const esLocaleSnapshot = stateWithLocale.locales["es"]!;
+  const contactInEs = capability.createPageDefinition("Contacto", "Informacion de contacto", "2023-10-02");
+  const updatedEsLocale = capability.addPageToLocale(
+    esLocaleSnapshot,
+    capability.PAGE_TYPE_CONTACT,
+    contactInEs
+  );
+  assert.notStrictEqual(updatedEsLocale, esLocaleSnapshot);
+  assert.strictEqual(esLocaleSnapshot.pages[capability.PAGE_TYPE_CONTACT], undefined);
+  assert.strictEqual(updatedEsLocale.pages[capability.PAGE_TYPE_CONTACT], contactInEs);
+
+  const contactFromState = capability.renderPage(stateWithLocale, "es", capability.PAGE_TYPE_CONTACT);
+  assert.strictEqual(contactFromState.success, false);
+  if (!contactFromState.success) {
+    assert.strictEqual(contactFromState.error, capability.ERR_PAGE_NOT_FOUND);
+  }
+
+  assert.throws(() => capability.removeLocale(stateWithLocale, "en"), /Cannot remove source locale/);
 });
 
 test("localisedstaticcontentuisemantics", () => {
-  const section = capability.createSection("Introducción", ["Texto de introducción."], []);
-  const page = capability.createPageDefinition(
-    "Página de Inicio",
+  const englishHome = capability.createPageDefinition(
+    "Home",
+    "Welcome",
+    "2023-10-01",
+    [],
+    [],
+    [capability.createSection("Introduction", ["Welcome paragraph"])]
+  );
+  const englishNavigation = capability.createPageDefinition(
+    "Navigation",
+    "Main navigation",
+    "2023-10-01",
+    [],
+    [],
+    [capability.createSection("Navigation", ["Primary links."])]
+  );
+
+  const spanishHome = capability.createPageDefinition(
+    "Inicio",
     "Bienvenido",
-    "2023-10-01",
+    "2023-10-02",
     [],
     [],
-    [section]
+    [capability.createSection("Introduccion", ["Bienvenida del sitio"])]
+  );
+  const spanishNavigation = capability.createPageDefinition(
+    "Navegacion",
+    "Menu del sitio",
+    "2023-10-02",
+    [capability.createLink("Inicio", "home", true)],
+    [],
+    [capability.createSection("Navegacion", ["Enlaces principales"])]
   );
 
-  const toc = capability.generateTableOfContents(page);
-  assert.deepStrictEqual([...toc], ["Introducción"]);
+  const state = capability.createStaticContentState("en", {
+    en: capability.createLocaleContent("en", {
+      home: englishHome,
+      navigation: englishNavigation,
+    }),
+    es: capability.createLocaleContent("es", {
+      home: spanishHome,
+      navigation: spanishNavigation,
+    }),
+  });
 
-  const navSection = capability.createSection("Navegación", [], []);
-  const navPage = capability.createPageDefinition(
-    "Navegación",
-    "Menú principal",
-    "2023-10-01",
-    [],
-    [],
-    [navSection]
-  );
-  const esLocale = capability.createLocaleContent("es", { navigation: navPage });
-  const initialState = capability.createStaticContentState("en");
-  const stateWithEs = capability.addLocale(initialState, esLocale);
+  const navigationResult = capability.getLocaleNavigation(state, "es");
+  assert.strictEqual(navigationResult.success, true);
+  if (navigationResult.success) {
+    assert.strictEqual(navigationResult.page.title, "Navegacion");
+    assert.deepStrictEqual(capability.generateTableOfContents(navigationResult.page), ["Navegacion"]);
+    const navSections = navigationResult.page.sections;
+    assert.strictEqual(navSections[0]!.heading, "Navegacion");
+  }
 
-  const navResult = capability.getLocaleNavigation(stateWithEs, "es");
-  assert.strictEqual(navResult.success, true);
-  if (navResult.success) {
-    const navToc = capability.generateTableOfContents(navResult.page);
-    assert.deepStrictEqual([...navToc], ["Navegación"]);
-    assert.strictEqual(navResult.page.title, "Navegación");
-  } else {
-    assert.fail("Expected navigation lookup to succeed");
+  const renderedNavigation = capability.renderPage(state, "es", capability.PAGE_TYPE_NAVIGATION);
+  assert.strictEqual(renderedNavigation.success, true);
+  if (renderedNavigation.success) {
+    assert.strictEqual(renderedNavigation.localeCode, "es");
+    assert.strictEqual(renderedNavigation.page.title, "Navegacion");
+    assert.strictEqual(renderedNavigation.gap, undefined);
+    assert.deepStrictEqual(capability.generateTableOfContents(renderedNavigation.page), ["Navegacion"]);
+  }
+
+  const englishNavigationResult = capability.getLocaleNavigation(state, "en");
+  assert.strictEqual(englishNavigationResult.success, true);
+  if (englishNavigationResult.success) {
+    assert.strictEqual(englishNavigationResult.page.title, "Navigation");
+    assert.deepStrictEqual(capability.generateTableOfContents(englishNavigationResult.page), ["Navigation"]);
+  }
+
+  const spanishHomeResult = capability.renderPage(state, "es", capability.PAGE_TYPE_HOME);
+  assert.strictEqual(spanishHomeResult.success, true);
+  if (spanishHomeResult.success) {
+    assert.strictEqual(spanishHomeResult.localeCode, "es");
+    assert.strictEqual(spanishHomeResult.page.title, "Inicio");
+    assert.deepStrictEqual(capability.generateTableOfContents(spanishHomeResult.page), ["Introduccion"]);
   }
 });
 
 test("localisedstaticcontentvalidation", () => {
-  const page = capability.createPageDefinition("Home", "Welcome", "2023-10-01");
-  const pageWithLink = capability.createPageDefinition(
-    "About",
-    "About us",
-    "2023-10-01",
-    [capability.createLink("Home", "home", true)],
-    [],
-    []
-  );
-
-  const enLocale = capability.createLocaleContent("en", { home: page, about: pageWithLink });
-  const esLocale = capability.createLocaleContent("es", { home: page, about: pageWithLink });
-  const frLocale = capability.createLocaleContent("fr", { home: page, about: pageWithLink });
-  const deLocale = capability.createLocaleContent("de", { home: page, about: pageWithLink });
-
-  let state = capability.createStaticContentState("en");
-  state = capability.addLocale(state, enLocale);
-  state = capability.addLocale(state, esLocale);
-  state = capability.addLocale(state, frLocale);
-  state = capability.addLocale(state, deLocale);
-
-  const resolved = capability.resolveInternalLinks(state, "en", pageWithLink);
-  assert.strictEqual(resolved.success, true);
-  if (resolved.success) {
-    assert.strictEqual(resolved.page.primaryLinks.length, 1);
-  } else {
-    assert.fail("Expected internal link resolution to succeed");
-  }
-
-  // Negative case: an internal link that does not resolve must fail.
-  const brokenLinkPage = capability.createPageDefinition(
-    "Broken",
-    "Broken",
-    "2023-10-01",
-    [capability.createLink("Missing", "does-not-exist", true)],
-    [],
-    []
-  );
-  const broken = capability.resolveInternalLinks(state, "en", brokenLinkPage);
-  assert.strictEqual(broken.success, false);
-  if (!broken.success) {
-    assert.ok(broken.error.includes("could not be resolved"));
-  } else {
-    assert.fail("Expected broken internal link to fail resolution");
-  }
+  const state = capability.createStaticContentState("en", {
+    en: buildLocaleWithKnownPages("en", "EN"),
+    es: buildLocaleWithKnownPages("es", "ES"),
+    fr: buildLocaleWithKnownPages("fr", "FR"),
+  });
 
   const completeness = capability.validateContentCompleteness(state);
-  for (const lv of completeness.localeValidations) {
-    assert.strictEqual(lv.success, true);
+  assert.strictEqual(completeness.success, true);
+  if (completeness.success) {
+    assert.strictEqual(completeness.localeValidations.length, Object.keys(state.locales).length);
+    assert.ok(completeness.localeValidations.every((entry) => entry.success));
+    assert.ok(completeness.pageValidations.every((entry) => entry.success));
+    assert.strictEqual(completeness.missingPages.length, 0);
+    assert.strictEqual(completeness.renderFailures.length, 0);
   }
-  assert.strictEqual(completeness.missingPages.length, 0, "All declared locales and page types should be loaded");
+
+  for (const localeCode of Object.keys(state.locales)) {
+    const locale = state.locales[localeCode];
+    assert.ok(locale);
+    for (const pageType of capability.KNOWN_PAGE_TYPES) {
+      const page = locale.pages[pageType];
+      assert.ok(page);
+      const resolved = capability.resolveInternalLinks(state, localeCode, page);
+      assert.strictEqual(resolved.success, true);
+      if (resolved.success) {
+        assert.strictEqual(resolved.page.title, page.title);
+      }
+    }
+  }
+
+  const broken = capability.createPageDefinition(
+    "Broken",
+    "Broken internal link page",
+    "2023-10-01",
+    [capability.createLink("Missing", "not-found", true)],
+    [],
+    [capability.createSection("Broken", ["Bad link"])]
+  );
+  const brokenLinks = capability.resolveInternalLinks(state, "en", broken);
+  assert.strictEqual(brokenLinks.success, false);
+  if (!brokenLinks.success) {
+    assert.strictEqual(brokenLinks.error, capability.ERR_INTERNAL_LINK_UNRESOLVED);
+  }
 });

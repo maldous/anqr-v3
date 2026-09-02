@@ -1,5 +1,3 @@
-// Capability module for QR artefact creation in the ANQR product.
-
 export type ErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';
 
 export type ModuleShape = 'square' | 'rounded' | 'circle' | 'diamond';
@@ -15,6 +13,8 @@ export type SafetyProfile = 'open' | 'guarded' | 'restricted';
 export type QualityAssuranceLevel = 'draft' | 'standard' | 'rigorous';
 
 export type RenderProfile = 'standard' | 'high-contrast' | 'branded' | 'artistic';
+
+export type TransitionStatus = 'requested' | 'produced';
 
 export interface CoreOptions {
   readonly errorCorrectionLevel: ErrorCorrectionLevel;
@@ -183,6 +183,17 @@ export const DEFAULT_QUALITY_ASSURANCE_OPTIONS: QualityAssuranceOptions = {
   contrastCheck: true,
 };
 
+export const DEFAULT_USED_OPTIONS: UsedOptions = {
+  core: DEFAULT_CORE_OPTIONS,
+  render: DEFAULT_RENDER_OPTIONS,
+  output: DEFAULT_OUTPUT_OPTIONS,
+  overlay: DEFAULT_OVERLAY_OPTIONS,
+  animation: DEFAULT_ANIMATION_OPTIONS,
+  safety: DEFAULT_SAFETY_OPTIONS,
+  metadata: DEFAULT_METADATA_OPTIONS,
+  qualityAssurance: DEFAULT_QUALITY_ASSURANCE_OPTIONS,
+};
+
 export const ERROR_CORRECTION_LEVELS: readonly ErrorCorrectionLevel[] = [
   'L',
   'M',
@@ -244,6 +255,11 @@ export const FAILURE_REASONS: readonly FailureReason[] = [
   'decode-mismatch',
 ];
 
+export const TRANSITION_STATUSES: readonly TransitionStatus[] = [
+  'requested',
+  'produced',
+];
+
 const MAX_SYMBOL_MODULES = 177;
 const MAX_PAYLOAD_BYTES_BY_EC: Readonly<Record<ErrorCorrectionLevel, number>> = {
   L: 2953,
@@ -297,18 +313,18 @@ function isNonNegativeInteger(value: number): boolean {
 }
 
 function payloadBytes(payload: string): number {
-  let bytes = 0;
+  let total = 0;
   for (let i = 0; i < payload.length; i += 1) {
     const code = payload.charCodeAt(i);
     if (code < 0x80) {
-      bytes += 1;
+      total += 1;
     } else if (code < 0x800) {
-      bytes += 2;
+      total += 2;
     } else {
-      bytes += 3;
+      total += 3;
     }
   }
-  return bytes;
+  return total;
 }
 
 function validateCoreOptions(options: CoreOptions): CreationFailure | null {
@@ -325,7 +341,7 @@ function validateCoreOptions(options: CoreOptions): CreationFailure | null {
     return {
       success: false,
       reason: 'invalid-option-value',
-      message: `Unsupported value for option core.maskPattern: ${options.maskPattern}.`,
+      message: `Invalid value for option core.maskPattern: ${options.maskPattern}. Must be between 0 and 7.`,
       optionName: 'core.maskPattern',
       optionValue: String(options.maskPattern),
     };
@@ -343,7 +359,7 @@ function validateCoreOptions(options: CoreOptions): CreationFailure | null {
     return {
       success: false,
       reason: 'invalid-option-value',
-      message: `Unsupported value for option core.moduleSizePx: ${options.moduleSizePx}.`,
+      message: `Invalid value for option core.moduleSizePx: ${options.moduleSizePx}. Must be a positive integer.`,
       optionName: 'core.moduleSizePx',
       optionValue: String(options.moduleSizePx),
     };
@@ -365,7 +381,7 @@ function validateRenderOptions(options: RenderOptions): CreationFailure | null {
     return {
       success: false,
       reason: 'invalid-option-value',
-      message: `Unsupported value for option render.foregroundColor: "${options.foregroundColor}".`,
+      message: `Invalid value for option render.foregroundColor: "${options.foregroundColor}". Must be a 6-digit hex color.`,
       optionName: 'render.foregroundColor',
       optionValue: options.foregroundColor,
     };
@@ -374,7 +390,7 @@ function validateRenderOptions(options: RenderOptions): CreationFailure | null {
     return {
       success: false,
       reason: 'invalid-option-value',
-      message: `Unsupported value for option render.backgroundColor: "${options.backgroundColor}".`,
+      message: `Invalid value for option render.backgroundColor: "${options.backgroundColor}". Must be a 6-digit hex color.`,
       optionName: 'render.backgroundColor',
       optionValue: options.backgroundColor,
     };
@@ -383,7 +399,7 @@ function validateRenderOptions(options: RenderOptions): CreationFailure | null {
     return {
       success: false,
       reason: 'invalid-option-value',
-      message: `Unsupported value for option render.quietZoneModules: ${options.quietZoneModules}.`,
+      message: `Invalid value for option render.quietZoneModules: ${options.quietZoneModules}. Must be a non-negative integer.`,
       optionName: 'render.quietZoneModules',
       optionValue: String(options.quietZoneModules),
     };
@@ -405,7 +421,7 @@ function validateOutputOptions(options: OutputOptions): CreationFailure | null {
     return {
       success: false,
       reason: 'invalid-option-value',
-      message: `Unsupported value for option output.sizePx: ${options.sizePx}.`,
+      message: `Invalid value for option output.sizePx: ${options.sizePx}. Must be a positive integer.`,
       optionName: 'output.sizePx',
       optionValue: String(options.sizePx),
     };
@@ -414,7 +430,7 @@ function validateOutputOptions(options: OutputOptions): CreationFailure | null {
     return {
       success: false,
       reason: 'invalid-option-value',
-      message: `Unsupported value for option output.marginPx: ${options.marginPx}.`,
+      message: `Invalid value for option output.marginPx: ${options.marginPx}. Must be a non-negative integer.`,
       optionName: 'output.marginPx',
       optionValue: String(options.marginPx),
     };
@@ -435,7 +451,7 @@ function validateOverlayOptions(options: OverlayOptions): CreationFailure | null
   if (typeof options.caption !== 'string') {
     return {
       success: false,
-      reason: 'invalid-option-value',
+      reason: 'unsupported-option',
       message: `Unsupported value for option overlay.caption.`,
       optionName: 'overlay.caption',
       optionValue: String(options.caption),
@@ -449,7 +465,7 @@ function validateOverlayOptions(options: OverlayOptions): CreationFailure | null
     return {
       success: false,
       reason: 'invalid-option-value',
-      message: `Unsupported value for option overlay.centerFraction: ${options.centerFraction}.`,
+      message: `Invalid value for option overlay.centerFraction: ${options.centerFraction}. Must be between 0 and 1.`,
       optionName: 'overlay.centerFraction',
       optionValue: String(options.centerFraction),
     };
@@ -471,7 +487,7 @@ function validateAnimationOptions(options: AnimationOptions): CreationFailure | 
     return {
       success: false,
       reason: 'invalid-option-value',
-      message: `Unsupported value for option animation.durationMs: ${options.durationMs}.`,
+      message: `Invalid value for option animation.durationMs: ${options.durationMs}. Must be a non-negative integer.`,
       optionName: 'animation.durationMs',
       optionValue: String(options.durationMs),
     };
@@ -492,7 +508,7 @@ function validateSafetyOptions(options: SafetyOptions): CreationFailure | null {
   if (!Array.isArray(options.blockedPayloads)) {
     return {
       success: false,
-      reason: 'invalid-option-value',
+      reason: 'unsupported-option',
       message: `Unsupported value for option safety.blockedPayloads.`,
       optionName: 'safety.blockedPayloads',
       optionValue: '[non-array]',
@@ -505,7 +521,7 @@ function validateMetadataOptions(options: MetadataOptions): CreationFailure | nu
   if (typeof options.title !== 'string') {
     return {
       success: false,
-      reason: 'invalid-option-value',
+      reason: 'unsupported-option',
       message: `Unsupported value for option metadata.title.`,
       optionName: 'metadata.title',
       optionValue: String(options.title),
@@ -514,7 +530,7 @@ function validateMetadataOptions(options: MetadataOptions): CreationFailure | nu
   if (typeof options.description !== 'string') {
     return {
       success: false,
-      reason: 'invalid-option-value',
+      reason: 'unsupported-option',
       message: `Unsupported value for option metadata.description.`,
       optionName: 'metadata.description',
       optionValue: String(options.description),
@@ -523,7 +539,7 @@ function validateMetadataOptions(options: MetadataOptions): CreationFailure | nu
   if (!Array.isArray(options.tags)) {
     return {
       success: false,
-      reason: 'invalid-option-value',
+      reason: 'unsupported-option',
       message: `Unsupported value for option metadata.tags.`,
       optionName: 'metadata.tags',
       optionValue: '[non-array]',
@@ -547,7 +563,7 @@ function validateQualityAssuranceOptions(
   if (typeof options.decodeCheck !== 'boolean') {
     return {
       success: false,
-      reason: 'invalid-option-value',
+      reason: 'unsupported-option',
       message: `Unsupported value for option qualityAssurance.decodeCheck.`,
       optionName: 'qualityAssurance.decodeCheck',
       optionValue: String(options.decodeCheck),
@@ -556,7 +572,7 @@ function validateQualityAssuranceOptions(
   if (typeof options.contrastCheck !== 'boolean') {
     return {
       success: false,
-      reason: 'invalid-option-value',
+      reason: 'unsupported-option',
       message: `Unsupported value for option qualityAssurance.contrastCheck.`,
       optionName: 'qualityAssurance.contrastCheck',
       optionValue: String(options.contrastCheck),
@@ -574,7 +590,8 @@ export function resolveOptions(request: CreationRequest): UsedOptions {
     animation: request.animation ?? DEFAULT_ANIMATION_OPTIONS,
     safety: request.safety ?? DEFAULT_SAFETY_OPTIONS,
     metadata: request.metadata ?? DEFAULT_METADATA_OPTIONS,
-    qualityAssurance: request.qualityAssurance ?? DEFAULT_QUALITY_ASSURANCE_OPTIONS,
+    qualityAssurance:
+      request.qualityAssurance ?? DEFAULT_QUALITY_ASSURANCE_OPTIONS,
   };
 }
 
@@ -637,6 +654,18 @@ function synthesiseArtifactBytes(
 }
 
 function decodeSyntheticBytes(bytes: Uint8Array): string {
+  if (bytes.length < 4) {
+    return '';
+  }
+  const trailer = bytes.subarray(bytes.length - 4);
+  if (
+    trailer[0] !== 0xfe ||
+    trailer[1] !== 0xed ||
+    trailer[2] !== 0xfa ||
+    trailer[3] !== 0xce
+  ) {
+    return '';
+  }
   const text = new TextDecoder().decode(bytes.subarray(0, bytes.length - 4));
   const sep = text.indexOf('|');
   if (sep < 0) {
@@ -653,7 +682,13 @@ function decodeSyntheticBytes(bytes: Uint8Array): string {
     return '';
   }
   const declared = Number.parseInt(afterFormat.slice(0, lengthSep), 10);
+  if (!Number.isInteger(declared) || declared < 0) {
+    return '';
+  }
   const body = afterFormat.slice(lengthSep + 1);
+  if (body.length < declared) {
+    return '';
+  }
   return body.slice(0, declared);
 }
 
@@ -661,6 +696,7 @@ export interface CreationRuntimeState {
   readonly requestsProcessed: number;
   readonly artefactsProduced: number;
   readonly nextSequence: number;
+  readonly status: TransitionStatus;
 }
 
 export function initialRuntimeState(): CreationRuntimeState {
@@ -668,6 +704,7 @@ export function initialRuntimeState(): CreationRuntimeState {
     requestsProcessed: 0,
     artefactsProduced: 0,
     nextSequence: 1,
+    status: 'requested',
   };
 }
 
@@ -676,189 +713,147 @@ export interface CreationTransition {
   readonly next: CreationRuntimeState;
 }
 
-export interface CreationProcess {
-  readonly produce: (audit?: (transition: CreationTransition) => void) => CreationResult;
+export interface CreationMutation {
+  readonly transitions: readonly CreationTransition[];
+  readonly state: CreationRuntimeState;
 }
 
-export function startCreation(state: CreationRuntimeState): CreationProcess {
-  const before: CreationRuntimeState = state;
-  const usedOptionsHolder: { value: UsedOptions | null } = { value: null };
-  const requestHolder: { value: CreationRequest | null } = { value: null };
+function emptyMutation(state: CreationRuntimeState): CreationMutation {
+  return { transitions: [], state };
+}
 
+function advanceState(
+  before: CreationRuntimeState
+): CreationRuntimeState {
   return {
-    produce(audit?: (transition: CreationTransition) => void): CreationResult {
-      const request = requestHolder.value;
-      if (request === null) {
-        const failure: CreationFailure = {
-          success: false,
-          reason: 'invalid-option-value',
-          message: 'No request supplied to creation process.',
-        };
-        if (audit !== undefined) {
-          audit({ previous: before, next: before });
-        }
-        return failure;
-      }
-
-      const usedOptions = usedOptionsHolder.value ?? resolveOptions(request);
-
-      const validators: ReadonlyArray<(opts: UsedOptions) => CreationFailure | null> = [
-        (o) => validateCoreOptions(o.core),
-        (o) => validateRenderOptions(o.render),
-        (o) => validateOutputOptions(o.output),
-        (o) => validateOverlayOptions(o.overlay),
-        (o) => validateAnimationOptions(o.animation),
-        (o) => validateSafetyOptions(o.safety),
-        (o) => validateMetadataOptions(o.metadata),
-        (o) => validateQualityAssuranceOptions(o.qualityAssurance),
-      ];
-
-      for (const validator of validators) {
-        const failure = validator(usedOptions);
-        if (failure !== null) {
-          if (audit !== undefined) {
-            audit({ previous: before, next: before });
-          }
-          return failure;
-        }
-      }
-
-      const capacityFailure = checkCapacity(request.payload, usedOptions.core.errorCorrectionLevel);
-      if (capacityFailure !== null) {
-        if (audit !== undefined) {
-          audit({ previous: before, next: before });
-        }
-        return capacityFailure;
-      }
-
-      if (
-        usedOptions.safety.profile !== 'open' &&
-        usedOptions.safety.blockedPayloads.includes(request.payload)
-      ) {
-        const failure: CreationFailure = {
-          success: false,
-          reason: 'unsupported-option',
-          message: `Payload rejected by safety profile "${usedOptions.safety.profile}".`,
-          optionName: 'safety.blockedPayloads',
-          optionValue: request.payload,
-        };
-        if (audit !== undefined) {
-          audit({ previous: before, next: before });
-        }
-        return failure;
-      }
-
-      const id = `artefact-${before.nextSequence}`;
-      const sizeModules = MAX_SYMBOL_MODULES;
-      const modules = buildSyntheticModuleMatrix(request.payload, sizeModules, id.length);
-      const bytes = synthesiseArtifactBytes(usedOptions, request.payload, id);
-
-      const decoded = decodeSyntheticBytes(bytes);
-      if (decoded !== request.payload) {
-        const failure: CreationFailure = {
-          success: false,
-          reason: 'decode-mismatch',
-          message: `Decoded payload "${decoded}" did not match requested payload.`,
-        };
-        if (audit !== undefined) {
-          audit({ previous: before, next: before });
-        }
-        return failure;
-      }
-
-      const artefact: QrArtefact = {
-        id,
-        payload: request.payload,
-        modules,
-        sizeModules,
-        options: usedOptions,
-        contentType: `image/${usedOptions.output.format}`,
-        bytes,
-      };
-
-      const after: CreationRuntimeState = {
-        requestsProcessed: before.requestsProcessed + 1,
-        artefactsProduced: before.artefactsProduced + 1,
-        nextSequence: before.nextSequence + 1,
-      };
-
-      if (audit !== undefined) {
-        audit({ previous: before, next: after });
-      }
-
-      return {
-        success: true,
-        artefact,
-        usedOptions,
-      };
-    },
+    requestsProcessed: before.requestsProcessed + 1,
+    artefactsProduced: before.artefactsProduced + 1,
+    nextSequence: before.nextSequence + 1,
+    status: 'produced',
   };
 }
 
-export function createArtefact(
-  request: CreationRequest,
-  audit?: (transition: CreationTransition) => void
-): CreationResult {
-  const state = initialRuntimeState();
-  const process = startCreation(state);
-  const sealed: { value: CreationRequest | null } = { value: request };
-  const wrappedAudit = (
-    transition: CreationTransition
-  ): void => {
-    if (audit !== undefined) {
-      audit(transition);
+function recordedMutation(
+  before: CreationRuntimeState,
+  after: CreationRuntimeState
+): CreationMutation {
+  if (before === after) {
+    return emptyMutation(before);
+  }
+  return {
+    transitions: [{ previous: before, next: after }],
+    state: after,
+  };
+}
+
+export function nextStateAfterRequest(
+  before: CreationRuntimeState
+): CreationRuntimeState {
+  return advanceState(before);
+}
+
+export function isProducedState(state: CreationRuntimeState): boolean {
+  return state.status === 'produced';
+}
+
+export function isRequestedState(state: CreationRuntimeState): boolean {
+  return state.status === 'requested';
+}
+
+function seedForOptions(usedOptions: UsedOptions): number {
+  const pieces: string[] = [
+    usedOptions.core.errorCorrectionLevel,
+    String(usedOptions.core.maskPattern),
+    usedOptions.core.moduleShape,
+    String(usedOptions.core.moduleSizePx),
+    usedOptions.render.profile,
+    usedOptions.render.foregroundColor,
+    usedOptions.render.backgroundColor,
+    String(usedOptions.render.quietZoneModules),
+    usedOptions.output.format,
+    String(usedOptions.output.sizePx),
+    String(usedOptions.output.marginPx),
+    usedOptions.overlay.shape,
+    usedOptions.overlay.caption,
+    String(usedOptions.overlay.centerFraction),
+    usedOptions.animation.style,
+    String(usedOptions.animation.durationMs),
+    usedOptions.safety.profile,
+    usedOptions.safety.blockedPayloads.join('\u0001'),
+    usedOptions.metadata.title,
+    usedOptions.metadata.description,
+    usedOptions.metadata.tags.join('\u0001'),
+    usedOptions.qualityAssurance.level,
+    String(usedOptions.qualityAssurance.decodeCheck),
+    String(usedOptions.qualityAssurance.contrastCheck),
+  ];
+  let h = 0;
+  for (const piece of pieces) {
+    for (let i = 0; i < piece.length; i += 1) {
+      h = (h * 31 + piece.charCodeAt(i)) | 0;
     }
+  }
+  return h & 0x7fffffff;
+}
+
+function buildProducedArtefact(
+  request: CreationRequest,
+  usedOptions: UsedOptions,
+  seed: number
+): QrArtefact {
+  const id = `artefact-${seed}`;
+  const sizeModules = MAX_SYMBOL_MODULES;
+  const modules = buildSyntheticModuleMatrix(
+    request.payload,
+    sizeModules,
+    id.length + seed
+  );
+  const bytes = synthesiseArtifactBytes(usedOptions, request.payload, id);
+  return {
+    id,
+    payload: request.payload,
+    modules,
+    sizeModules,
+    options: usedOptions,
+    contentType: `image/${usedOptions.output.format}`,
+    bytes,
   };
-  // The process holds the request; we re-derive a process that owns it.
-  const innerProcess = startCreation(state);
-  const result = runWithRequest(innerProcess, request, wrappedAudit);
-  return result;
 }
 
-function runWithRequest(
-  process: CreationProcess,
-  request: CreationRequest,
-  audit: (transition: CreationTransition) => void
-): CreationResult {
-  // We forward the request by reconstructing a process-bound invocation.
-  return forwardRequest(process, request, audit);
+export type AuditOutcome =
+  | { readonly kind: 'ok' }
+  | { readonly kind: 'threw'; readonly failure: CreationFailure };
+
+export function runAudit(
+  audit: ((transition: CreationTransition) => void) | undefined,
+  transition: CreationTransition
+): AuditOutcome {
+  if (audit === undefined) {
+    return { kind: 'ok' };
+  }
+  try {
+    audit(transition);
+    return { kind: 'ok' };
+  } catch (error: unknown) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return {
+      kind: 'threw',
+      failure: {
+        success: false,
+        reason: 'unsupported-option',
+        message: `Audit function threw: ${detail}.`,
+        optionName: 'audit',
+        optionValue: detail,
+      },
+    };
+  }
 }
 
-function forwardRequest(
-  process: CreationProcess,
+export function produceArtefact(
   request: CreationRequest,
-  audit: (transition: CreationTransition) => void
-): CreationResult {
-  // The process carries the captured request from startCreation via closure.
-  // We re-derive it here by reconstructing with the same state so it holds request.
-  const state = initialRuntimeState();
-  const fresh = startCreation(state);
-  return invokeWith(fresh, request, audit);
-}
-
-function invokeWith(
-  process: CreationProcess,
-  request: CreationRequest,
-  audit: (transition: CreationTransition) => void
-): CreationResult {
-  // Bridge: use a fresh process whose closure is fed via a one-shot helper.
-  return bridgeRequest(process, request, audit);
-}
-
-function bridgeRequest(
-  _process: CreationProcess,
-  request: CreationRequest,
-  audit: (transition: CreationTransition) => void
-): CreationResult {
-  const state = initialRuntimeState();
-  return executeCreation(state, request, audit);
-}
-
-function executeCreation(
-  state: CreationRuntimeState,
-  request: CreationRequest,
-  audit: (transition: CreationTransition) => void
-): CreationResult {
+  before: CreationRuntimeState,
+  audit?: (transition: CreationTransition) => void
+): { readonly result: CreationResult; readonly mutation: CreationMutation } {
   const usedOptions = resolveOptions(request);
 
   const validators: ReadonlyArray<(opts: UsedOptions) => CreationFailure | null> = [
@@ -875,15 +870,16 @@ function executeCreation(
   for (const validator of validators) {
     const failure = validator(usedOptions);
     if (failure !== null) {
-      audit({ previous: state, next: state });
-      return failure;
+      return { result: failure, mutation: emptyMutation(before) };
     }
   }
 
-  const capacityFailure = checkCapacity(request.payload, usedOptions.core.errorCorrectionLevel);
+  const capacityFailure = checkCapacity(
+    request.payload,
+    usedOptions.core.errorCorrectionLevel
+  );
   if (capacityFailure !== null) {
-    audit({ previous: state, next: state });
-    return capacityFailure;
+    return { result: capacityFailure, mutation: emptyMutation(before) };
   }
 
   if (
@@ -892,70 +888,84 @@ function executeCreation(
   ) {
     const failure: CreationFailure = {
       success: false,
-      reason: 'unsupported-option',
-      message: `Payload rejected by safety profile "${usedOptions.safety.profile}".`,
+      reason: 'invalid-option-value',
+      message: `Invalid payload value for option safety.blockedPayloads: "${request.payload}".`,
       optionName: 'safety.blockedPayloads',
       optionValue: request.payload,
     };
-    audit({ previous: state, next: state });
-    return failure;
+    return { result: failure, mutation: emptyMutation(before) };
   }
 
-  const id = `artefact-${state.nextSequence}`;
-  const sizeModules = MAX_SYMBOL_MODULES;
-  const modules = buildSyntheticModuleMatrix(request.payload, sizeModules, id.length);
-  const bytes = synthesiseArtifactBytes(usedOptions, request.payload, id);
+  const seed = seedForOptions(usedOptions);
+  const candidate = buildProducedArtefact(request, usedOptions, seed);
 
-  const decoded = decodeSyntheticBytes(bytes);
+  const decoded = decodeSyntheticBytes(candidate.bytes);
   if (decoded !== request.payload) {
     const failure: CreationFailure = {
       success: false,
       reason: 'decode-mismatch',
       message: `Decoded payload "${decoded}" did not match requested payload.`,
     };
-    audit({ previous: state, next: state });
-    return failure;
+    return { result: failure, mutation: emptyMutation(before) };
   }
 
-  const artefact: QrArtefact = {
-    id,
-    payload: request.payload,
-    modules,
-    sizeModules,
-    options: usedOptions,
-    contentType: `image/${usedOptions.output.format}`,
-    bytes,
-  };
+  const after = advanceState(before);
 
-  const nextState: CreationRuntimeState = {
-    requestsProcessed: state.requestsProcessed + 1,
-    artefactsProduced: state.artefactsProduced + 1,
-    nextSequence: state.nextSequence + 1,
-  };
+  if (audit !== undefined) {
+    const outcome = runAudit(audit, { previous: before, next: after });
+    if (outcome.kind !== 'ok') {
+      return { result: outcome.failure, mutation: emptyMutation(before) };
+    }
+  }
 
-  audit({ previous: state, next: nextState });
-
-  return {
+  const result: CreationSuccess = {
     success: true,
-    artefact,
+    artefact: candidate,
     usedOptions,
   };
+
+  return { result, mutation: recordedMutation(before, after) };
+}
+
+export function buildExportableArtefact(
+  request: CreationRequest
+): QrArtefact {
+  const usedOptions = resolveOptions(request);
+  return buildProducedArtefact(request, usedOptions, seedForOptions(usedOptions));
+}
+
+export function createArtefact(
+  request: CreationRequest,
+  audit?: (transition: CreationTransition) => void
+): CreationResult {
+  const { result } = produceArtefact(request, initialRuntimeState(), audit);
+  return result;
 }
 
 export function previewArtefact(request: CreationRequest): PreviewUpdate {
-  const result = createArtefact(request);
+  const before = initialRuntimeState();
+  const { result } = produceArtefact(request, before);
   if (!result.success) {
     return { success: false, failure: result };
   }
+  const usedOptions = resolveOptions(request);
   const frame: PreviewFrame = {
     id: result.artefact.id,
     request: {
       payload: result.artefact.payload,
-      options: result.usedOptions,
+      options: usedOptions,
     },
     artefact: result.artefact,
   };
   return { success: true, frame };
+}
+
+export function exportArtefact(request: CreationRequest): CreationResult {
+  return createArtefact(request);
+}
+
+export function buildPreviewArtefact(request: CreationRequest): QrArtefact {
+  return buildExportableArtefact(request);
 }
 
 export function previewMatchesExport(
@@ -967,12 +977,50 @@ export function previewMatchesExport(
   }
   const a = previewFrame.artefact;
   const b = exportResult.artefact;
-  return (
-    a.id === b.id &&
-    a.payload === b.payload &&
-    a.sizeModules === b.sizeModules &&
-    a.contentType === b.contentType
-  );
+  if (a.id !== b.id || a.payload !== b.payload) {
+    return false;
+  }
+  if (a.sizeModules !== b.sizeModules) {
+    return false;
+  }
+  if (a.contentType !== b.contentType) {
+    return false;
+  }
+  if (a.bytes.length !== b.bytes.length) {
+    return false;
+  }
+  for (let i = 0; i < a.bytes.length; i += 1) {
+    if (a.bytes[i] !== b.bytes[i]) {
+      return false;
+    }
+  }
+  if (a.modules.length !== b.modules.length) {
+    return false;
+  }
+  for (let r = 0; r < a.modules.length; r += 1) {
+    const rowA = a.modules[r];
+    const rowB = b.modules[r];
+    if (rowA === undefined || rowB === undefined) {
+      return false;
+    }
+    if (rowA.length !== rowB.length) {
+      return false;
+    }
+    for (let c = 0; c < rowA.length; c += 1) {
+      if (rowA[c] !== rowB[c]) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+export function decodeArtefactBytes(bytes: Uint8Array): string {
+  return decodeSyntheticBytes(bytes);
+}
+
+export function decodeMatchesPayload(bytes: Uint8Array, payload: string): boolean {
+  return decodeSyntheticBytes(bytes) === payload;
 }
 
 export function isSuccess(result: CreationResult): result is CreationSuccess {
@@ -983,10 +1031,14 @@ export function isFailure(result: CreationResult): result is CreationFailure {
   return result.success === false;
 }
 
-export function isSuccessPreview(update: PreviewUpdate): update is { success: true; frame: PreviewFrame } {
+export function isSuccessPreview(
+  update: PreviewUpdate
+): update is { readonly success: true; readonly frame: PreviewFrame } {
   return update.success === true;
 }
 
-export function isFailurePreview(update: PreviewUpdate): update is { success: false; failure: CreationFailure } {
+export function isFailurePreview(
+  update: PreviewUpdate
+): update is { readonly success: false; readonly failure: CreationFailure } {
   return update.success === false;
 }
