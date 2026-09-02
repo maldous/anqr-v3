@@ -1,0 +1,1 @@
+export const exportFailureReasons = ['format_incompatible', 'geometry_incompatible'] as const;
