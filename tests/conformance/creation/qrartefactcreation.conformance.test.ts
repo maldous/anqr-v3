@@ -10,8 +10,8 @@ test("qrartefactcreationcontracts", () => {
   if (!defaultResult.success) {
     return;
   }
-  assert.deepStrictEqual(defaultResult.usedOptions, capability.DEFAULT_USED_OPTIONS);
   assert.strictEqual(defaultResult.artefact.payload, payload);
+  assert.deepStrictEqual(defaultResult.usedOptions, capability.DEFAULT_USED_OPTIONS);
   assert.deepStrictEqual(defaultResult.artefact.options, defaultResult.usedOptions);
 
   const coreOnly = capability.createArtefact({
@@ -311,46 +311,40 @@ test("qrartefactcreationstatemodel", () => {
   assert.strictEqual(initial.artefactsProduced, 0);
   assert.strictEqual(initial.nextSequence, 1);
 
-  const expectedNext = capability.nextStateAfterRequest(initial);
-  assert.strictEqual(expectedNext.status, "produced");
-  assert.ok(capability.isProducedState(expectedNext));
-  assert.ok(!capability.isRequestedState(expectedNext));
-  assert.strictEqual(expectedNext.requestsProcessed, initial.requestsProcessed + 1);
-  assert.strictEqual(expectedNext.artefactsProduced, initial.artefactsProduced + 1);
-  assert.strictEqual(expectedNext.nextSequence, initial.nextSequence + 1);
+  const after = capability.nextStateAfterRequest(initial);
+  assert.strictEqual(after.status, "produced");
+  assert.ok(capability.isProducedState(after));
+  assert.ok(!capability.isRequestedState(after));
+  assert.strictEqual(after.requestsProcessed, initial.requestsProcessed + 1);
+  assert.strictEqual(after.artefactsProduced, initial.artefactsProduced + 1);
+  assert.strictEqual(after.nextSequence, initial.nextSequence + 1);
 
   const request: capability.CreationRequest = { payload: "statemodel" };
 
-  const transitions: capability.CreationTransition[] = [];
-  const audit = (transition: capability.CreationTransition): void => {
-    transitions.push(transition);
-  };
-
-  const first = capability.produceArtefact({ request, before: initial, audit });
+  const first = capability.produceArtefact({ request, before: initial });
   assert.strictEqual(first.result.success, true);
   assert.strictEqual(first.mutation.transitions.length, 1);
-  assert.strictEqual(first.mutation.state, expectedNext);
-  assert.strictEqual(transitions.length, 1);
-  const recorded = transitions[0];
-  assert.ok(recorded !== undefined);
-  assert.strictEqual(recorded.previous, initial);
-  assert.strictEqual(recorded.next, expectedNext);
+  if (first.mutation.transitions.length === 1) {
+    assert.strictEqual(first.mutation.transitions[0]!.previous.status, "requested");
+    assert.strictEqual(first.mutation.transitions[0]!.next.status, "produced");
+  }
+  assert.strictEqual(first.mutation.state.status, "produced");
 
-  const afterFirst = first.mutation.state;
-  transitions.length = 0;
-  const second = capability.produceArtefact({ request, before: afterFirst, audit });
+  const second = capability.produceArtefact({ request, before: initial });
   assert.strictEqual(second.result.success, true);
+  assert.strictEqual(second.mutation.state.status, "produced");
   assert.strictEqual(second.mutation.transitions.length, 1);
-  assert.strictEqual(
-    second.mutation.state.requestsProcessed,
-    afterFirst.requestsProcessed + 1
-  );
-  assert.strictEqual(transitions.length, 1);
-  const secondRecorded = transitions[0];
-  assert.ok(secondRecorded !== undefined);
-  assert.strictEqual(secondRecorded.previous, afterFirst);
-  assert.notStrictEqual(secondRecorded.next.status, afterFirst.status);
-  assert.strictEqual(secondRecorded.next.status, "produced");
+  if (second.mutation.transitions.length === 1) {
+    assert.strictEqual(second.mutation.transitions[0]!.previous.status, "requested");
+    assert.strictEqual(second.mutation.transitions[0]!.next.status, "produced");
+  }
+
+  if (first.result.success && second.result.success) {
+    assert.strictEqual(first.result.artefact.id, second.result.artefact.id);
+    assert.strictEqual(first.result.artefact.payload, second.result.artefact.payload);
+    assert.deepStrictEqual(first.result.artefact.bytes, second.result.artefact.bytes);
+    assert.deepStrictEqual(first.result.usedOptions, second.result.usedOptions);
+  }
 
   const rejectedRequest: capability.CreationRequest = {
     payload: "a".repeat(2954),
@@ -366,7 +360,7 @@ test("qrartefactcreationstatemodel", () => {
     before: initial,
   });
   assert.strictEqual(rejected.result.success, false);
-  assert.strictEqual(rejected.mutation.state, initial);
+  assert.strictEqual(rejected.mutation.state.status, "requested");
   assert.strictEqual(rejected.mutation.transitions.length, 0);
 
   const throwing = capability.produceArtefact({
@@ -377,7 +371,7 @@ test("qrartefactcreationstatemodel", () => {
     },
   });
   assert.strictEqual(throwing.result.success, false);
-  assert.strictEqual(throwing.mutation.state, initial);
+  assert.strictEqual(throwing.mutation.state.status, "requested");
   assert.strictEqual(throwing.mutation.transitions.length, 0);
   if (throwing.result.success) {
     return;

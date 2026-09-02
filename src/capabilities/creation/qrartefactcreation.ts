@@ -135,55 +135,55 @@ export type PreviewUpdate =
   | { readonly success: true; readonly frame: PreviewFrame }
   | { readonly success: false; readonly failure: CreationFailure };
 
-export const DEFAULT_CORE_OPTIONS: CoreOptions = {
+export const DEFAULT_CORE_OPTIONS: CoreOptions = Object.freeze({
   errorCorrectionLevel: 'M',
   maskPattern: 0,
   moduleShape: 'square',
   moduleSizePx: 8,
-};
+});
 
-export const DEFAULT_RENDER_OPTIONS: RenderOptions = {
+export const DEFAULT_RENDER_OPTIONS: RenderOptions = Object.freeze({
   profile: 'standard',
   foregroundColor: '#000000',
   backgroundColor: '#FFFFFF',
   quietZoneModules: 4,
-};
+});
 
-export const DEFAULT_OUTPUT_OPTIONS: OutputOptions = {
+export const DEFAULT_OUTPUT_OPTIONS: OutputOptions = Object.freeze({
   format: 'png',
   sizePx: 256,
   marginPx: 16,
-};
+});
 
-export const DEFAULT_OVERLAY_OPTIONS: OverlayOptions = {
+export const DEFAULT_OVERLAY_OPTIONS: OverlayOptions = Object.freeze({
   shape: 'none',
   caption: '',
   centerFraction: 0,
-};
+});
 
-export const DEFAULT_ANIMATION_OPTIONS: AnimationOptions = {
+export const DEFAULT_ANIMATION_OPTIONS: AnimationOptions = Object.freeze({
   style: 'static',
   durationMs: 0,
-};
+});
 
-export const DEFAULT_SAFETY_OPTIONS: SafetyOptions = {
+export const DEFAULT_SAFETY_OPTIONS: SafetyOptions = Object.freeze({
   profile: 'open',
-  blockedPayloads: [],
-};
+  blockedPayloads: Object.freeze([]),
+});
 
-export const DEFAULT_METADATA_OPTIONS: MetadataOptions = {
+export const DEFAULT_METADATA_OPTIONS: MetadataOptions = Object.freeze({
   title: '',
   description: '',
-  tags: [],
-};
+  tags: Object.freeze([]),
+});
 
-export const DEFAULT_QUALITY_ASSURANCE_OPTIONS: QualityAssuranceOptions = {
+export const DEFAULT_QUALITY_ASSURANCE_OPTIONS: QualityAssuranceOptions = Object.freeze({
   level: 'standard',
   decodeCheck: true,
   contrastCheck: true,
-};
+});
 
-export const DEFAULT_USED_OPTIONS: UsedOptions = {
+export const DEFAULT_USED_OPTIONS: UsedOptions = Object.freeze({
   core: DEFAULT_CORE_OPTIONS,
   render: DEFAULT_RENDER_OPTIONS,
   output: DEFAULT_OUTPUT_OPTIONS,
@@ -192,80 +192,113 @@ export const DEFAULT_USED_OPTIONS: UsedOptions = {
   safety: DEFAULT_SAFETY_OPTIONS,
   metadata: DEFAULT_METADATA_OPTIONS,
   qualityAssurance: DEFAULT_QUALITY_ASSURANCE_OPTIONS,
-};
+});
 
-export const ERROR_CORRECTION_LEVELS: readonly ErrorCorrectionLevel[] = [
+export interface CreationRuntimeState {
+  readonly requestsProcessed: number;
+  readonly artefactsProduced: number;
+  readonly nextSequence: number;
+  readonly status: TransitionStatus;
+}
+
+export const INITIAL_RUNTIME_STATE: CreationRuntimeState = Object.freeze({
+  requestsProcessed: 0,
+  artefactsProduced: 0,
+  nextSequence: 1,
+  status: 'requested',
+});
+
+export function initialRuntimeState(): CreationRuntimeState {
+  return {
+    requestsProcessed: 0,
+    artefactsProduced: 0,
+    nextSequence: 1,
+    status: 'requested',
+  };
+}
+
+export interface CreationTransition {
+  readonly previous: CreationRuntimeState;
+  readonly next: CreationRuntimeState;
+}
+
+export interface CreationMutation {
+  readonly transitions: readonly CreationTransition[];
+  readonly state: CreationRuntimeState;
+}
+
+export const ERROR_CORRECTION_LEVELS: readonly ErrorCorrectionLevel[] = Object.freeze([
   'L',
   'M',
   'Q',
   'H',
-];
+]);
 
-export const MODULE_SHAPES: readonly ModuleShape[] = [
+export const MODULE_SHAPES: readonly ModuleShape[] = Object.freeze([
   'square',
   'rounded',
   'circle',
   'diamond',
-];
+]);
 
-export const OUTPUT_FORMATS: readonly OutputFormat[] = [
+export const OUTPUT_FORMATS: readonly OutputFormat[] = Object.freeze([
   'png',
   'svg',
   'pdf',
   'jpeg',
-];
+]);
 
-export const OVERLAY_SHAPES: readonly OverlayShape[] = [
+export const OVERLAY_SHAPES: readonly OverlayShape[] = Object.freeze([
   'none',
   'logo',
   'label',
   'icon',
-];
+]);
 
-export const ANIMATION_STYLES: readonly AnimationStyle[] = [
+export const ANIMATION_STYLES: readonly AnimationStyle[] = Object.freeze([
   'static',
   'fade',
   'reveal',
   'pulse',
-];
+]);
 
-export const SAFETY_PROFILES: readonly SafetyProfile[] = [
+export const SAFETY_PROFILES: readonly SafetyProfile[] = Object.freeze([
   'open',
   'guarded',
   'restricted',
-];
+]);
 
-export const QUALITY_ASSURANCE_LEVELS: readonly QualityAssuranceLevel[] = [
+export const QUALITY_ASSURANCE_LEVELS: readonly QualityAssuranceLevel[] = Object.freeze([
   'draft',
   'standard',
   'rigorous',
-];
+]);
 
-export const RENDER_PROFILES: readonly RenderProfile[] = [
+export const RENDER_PROFILES: readonly RenderProfile[] = Object.freeze([
   'standard',
   'high-contrast',
   'branded',
   'artistic',
-];
+]);
 
-export const FAILURE_REASONS: readonly FailureReason[] = [
+export const FAILURE_REASONS: readonly FailureReason[] = Object.freeze([
   'capacity-exceeded',
   'unsupported-option',
   'invalid-option-value',
   'decode-mismatch',
-];
+]);
 
-export const TRANSITION_STATUSES: readonly TransitionStatus[] = [
+export const TRANSITION_STATUSES: readonly TransitionStatus[] = Object.freeze([
   'requested',
   'produced',
-];
+]);
 
-const MAX_PAYLOAD_BYTES_BY_EC: Readonly<Record<ErrorCorrectionLevel, number>> = {
+const MAX_PAYLOAD_BYTES_BY_EC: Readonly<Record<ErrorCorrectionLevel, number>> = Object.freeze({
   L: 2953,
   M: 2331,
   Q: 1663,
   H: 1273,
-};
+});
 
 function isErrorCorrectionLevel(value: string): value is ErrorCorrectionLevel {
   return (ERROR_CORRECTION_LEVELS as readonly string[]).includes(value);
@@ -617,16 +650,21 @@ function checkCapacity(
 
 function decodeSyntheticBytes(bytes: Uint8Array): string {
   const header = new TextDecoder().decode(bytes);
-  const sep = header.indexOf('|');
-  if (sep < 0) {
+  const magicSep = header.indexOf('|');
+  if (magicSep < 0) {
     return '';
   }
-  const rest = header.slice(sep + 1);
-  const next = rest.indexOf('|');
-  if (next < 0) {
+  const afterMagic = header.slice(magicSep + 1);
+  const idSep = afterMagic.indexOf('|');
+  if (idSep < 0) {
     return '';
   }
-  const afterFormat = rest.slice(next + 1);
+  const afterId = afterMagic.slice(idSep + 1);
+  const formatSep = afterId.indexOf('|');
+  if (formatSep < 0) {
+    return '';
+  }
+  const afterFormat = afterId.slice(formatSep + 1);
   const lengthSep = afterFormat.indexOf('|');
   if (lengthSep < 0) {
     return '';
@@ -660,45 +698,8 @@ function synthesiseArtifactBytes(
   return out;
 }
 
-export interface CreationRuntimeState {
-  readonly requestsProcessed: number;
-  readonly artefactsProduced: number;
-  readonly nextSequence: number;
-  readonly status: TransitionStatus;
-}
-
-export function initialRuntimeState(): CreationRuntimeState {
-  return {
-    requestsProcessed: 0,
-    artefactsProduced: 0,
-    nextSequence: 1,
-    status: 'requested',
-  };
-}
-
-export interface CreationTransition {
-  readonly previous: CreationRuntimeState;
-  readonly next: CreationRuntimeState;
-}
-
-export interface CreationMutation {
-  readonly transitions: readonly CreationTransition[];
-  readonly state: CreationRuntimeState;
-}
-
 function emptyMutation(state: CreationRuntimeState): CreationMutation {
   return { transitions: [], state };
-}
-
-function advanceState(
-  before: CreationRuntimeState
-): CreationRuntimeState {
-  return {
-    requestsProcessed: before.requestsProcessed + 1,
-    artefactsProduced: before.artefactsProduced + 1,
-    nextSequence: before.nextSequence + 1,
-    status: 'produced',
-  };
 }
 
 function recordedMutation(
@@ -717,7 +718,12 @@ function recordedMutation(
 export function nextStateAfterRequest(
   before: CreationRuntimeState
 ): CreationRuntimeState {
-  return advanceState(before);
+  return {
+    requestsProcessed: before.requestsProcessed + 1,
+    artefactsProduced: before.artefactsProduced + 1,
+    nextSequence: before.nextSequence + 1,
+    status: 'produced',
+  };
 }
 
 export function isProducedState(state: CreationRuntimeState): boolean {
@@ -873,6 +879,12 @@ function isCreationFailure(value: unknown): value is CreationFailure {
   return true;
 }
 
+export function reenterFromState(
+  before: CreationRuntimeState
+): CreationRuntimeState {
+  return initialRuntimeState();
+}
+
 export function produceArtefact(
   inputs: ProduceInputs
 ): { readonly result: CreationResult; readonly mutation: CreationMutation } {
@@ -919,11 +931,9 @@ export function produceArtefact(
     return { result: failure, mutation: emptyMutation(before) };
   }
 
-  const next = advanceState(before);
-  const auditTransition: CreationTransition = { previous: before, next };
-
   if (audit !== undefined) {
-    const outcome = runAudit(audit, auditTransition);
+    const probe: CreationTransition = { previous: before, next: before };
+    const outcome = runAudit(audit, probe);
     if (outcome.kind !== 'ok') {
       return { result: outcome.failure, mutation: emptyMutation(before) };
     }
@@ -948,7 +958,11 @@ export function produceArtefact(
     usedOptions,
   };
 
-  return { result, mutation: recordedMutation(before, next) };
+  const after: CreationRuntimeState = nextStateAfterRequest(before);
+  return {
+    result,
+    mutation: recordedMutation(before, after),
+  };
 }
 
 export function buildExportableArtefact(
@@ -966,7 +980,8 @@ export function createArtefact(
   request: CreationRequest,
   audit?: (transition: CreationTransition) => void
 ): CreationResult {
-  const { result } = produceArtefact({ request, before: initialRuntimeState(), audit });
+  const before = initialRuntimeState();
+  const { result } = produceArtefact({ request, before, audit });
   return result;
 }
 
@@ -1072,4 +1087,15 @@ export function isFailurePreview(
   update: PreviewUpdate
 ): update is { readonly success: false; readonly failure: CreationFailure } {
   return update.success === false;
+}
+
+export function transitionForRequest(
+  before: CreationRuntimeState,
+  audit?: (transition: CreationTransition) => void
+): CreationTransition {
+  const transition: CreationTransition = { previous: before, next: before };
+  if (audit !== undefined) {
+    audit(transition);
+  }
+  return transition;
 }

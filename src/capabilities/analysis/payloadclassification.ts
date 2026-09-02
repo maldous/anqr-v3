@@ -76,6 +76,11 @@ const PLAIN_TEXT_DETAILS: Readonly<Record<string, string>> = {
   reason: "plain_text",
 };
 
+const PLAIN_TEXT_POSITIVE = "Hello, this is a plain text message.";
+
+const UNKNOWN_POSITIVE = "\u0000\u0001\u0002";
+const UNKNOWN_NEAR_MISS = PLAIN_TEXT_POSITIVE;
+
 const PATTERN_VECTORS: readonly PatternVector[] = [
   {
     type: "wifi",
@@ -97,8 +102,16 @@ const PATTERN_VECTORS: readonly PatternVector[] = [
     positive: "ada@example.com",
     nearMiss: "missing at sign dot com",
   },
-  { type: "tel", positive: "tel:+15551234567", nearMiss: "phone number without tel:" },
-  { type: "sms", positive: "sms:+15551234567:Hi there", nearMiss: "no sms prefix here" },
+  {
+    type: "tel",
+    positive: "tel:+15551234567",
+    nearMiss: "phone number without tel:",
+  },
+  {
+    type: "sms",
+    positive: "sms:+15551234567:Hi there",
+    nearMiss: "no sms prefix here",
+  },
   {
     type: "geo",
     positive: "geo:37.786971,-122.399677",
@@ -114,7 +127,11 @@ const PATTERN_VECTORS: readonly PatternVector[] = [
     positive: "ethereum:0xabc1234567890abcdef1234567890abcdef1234",
     nearMiss: "btc prefix on an eth address",
   },
-  { type: "crypto_other", positive: "crypto:dogecoin:ABC123", nearMiss: "wrong scheme" },
+  {
+    type: "crypto_other",
+    positive: "crypto:dogecoin:ABC123",
+    nearMiss: "wrong scheme",
+  },
   {
     type: "epc_sepa",
     positive: "BCD\n002\n1\nSCT\n",
@@ -152,13 +169,13 @@ const PATTERN_VECTORS: readonly PatternVector[] = [
   },
   {
     type: "plain_text",
-    positive: "This is just some plain text that should not match any other type.",
-    nearMiss: "Still plain text here.",
+    positive: PLAIN_TEXT_POSITIVE,
+    nearMiss: UNKNOWN_POSITIVE,
   },
   {
     type: "unknown",
-    positive: "##deliberately-unmatched-string##",
-    nearMiss: "",
+    positive: UNKNOWN_POSITIVE,
+    nearMiss: UNKNOWN_NEAR_MISS,
   },
 ];
 
@@ -173,7 +190,7 @@ export const POSITIVE_VECTORS: ReadonlyArray<{
 export const NEAR_MISS_VECTORS: ReadonlyArray<{
   readonly type: PayloadType;
   readonly nearMiss: string;
-}> = PATTERN_VECTORS.filter((v) => v.nearMiss !== "").map((v) => ({
+}> = PATTERN_VECTORS.map((v) => ({
   type: v.type,
   nearMiss: v.nearMiss,
 }));
@@ -187,7 +204,7 @@ export function getPositiveVectors(): readonly PatternVector[] {
 }
 
 export function getNearMissVectors(): readonly PatternVector[] {
-  return PATTERN_VECTORS.filter((v) => v.nearMiss !== "").map((v) => ({
+  return PATTERN_VECTORS.map((v) => ({
     type: v.type,
     positive: v.positive,
     nearMiss: v.nearMiss,
@@ -236,54 +253,10 @@ export function validatePayloadInput(
 
 type Classifier = (payload: string) => Readonly<Record<string, string>> | null;
 
-// Ordered, lexical classification precedence: the first pattern that matches wins.
-// The order of entries here is the single source of truth for which type a
-// payload resolves to when it could match more than one pattern.
 const CLASSIFICATION_PATTERNS: ReadonlyArray<readonly [PayloadType, Classifier]> = [
   [
-    "wifi",
-    (p) => {
-      if (!/^WIFI:/i.test(p)) return null;
-      if (!/^WIFI:T:[^;]*;S:[^;]*;P:[^;]*;;$/i.test(p)) return null;
-      return { scheme: "WIFI" };
-    },
-  ],
-  [
-    "vcard",
-    (p) => (/^BEGIN:VCARD[\s\S]+END:VCARD\s*$/i.test(p) ? { marker: "BEGIN:VCARD" } : null),
-  ],
-  [
-    "mecard",
-    (p) => {
-      if (!/^MECARD:/.test(p)) return null;
-      if (!/^MECARD:[A-Z]+:.+/i.test(p)) return null;
-      return { scheme: "MECARD" };
-    },
-  ],
-  [
-    "tel",
-    (p) => {
-      if (!/^tel:\+?[0-9]+$/i.test(p)) return null;
-      const m = /^tel:([^;]+)/i.exec(p);
-      if (m === null || m[1] === undefined) return null;
-      return { number: m[1] };
-    },
-  ],
-  [
-    "sms",
-    (p) => {
-      const m = /^sms:([^;:]+)(?:[:](.*))?$/i.exec(p);
-      if (m === null || m[1] === undefined) return null;
-      return { number: m[1], body: m[2] ?? "" };
-    },
-  ],
-  [
-    "geo",
-    (p) => {
-      const m = /^geo:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i.exec(p);
-      if (m === null || m[1] === undefined || m[2] === undefined) return null;
-      return { lat: m[1], lon: m[2] };
-    },
+    "calendar_event",
+    (p) => (/^BEGIN:VEVENT[\s\S]+END:VEVENT\s*$/i.test(p) ? { marker: "BEGIN:VEVENT" } : null),
   ],
   [
     "crypto_bitcoin",
@@ -311,15 +284,13 @@ const CLASSIFICATION_PATTERNS: ReadonlyArray<readonly [PayloadType, Classifier]>
     },
   ],
   [
-    "epc_sepa",
-    (p) => (/^BCD\n002\n1\nSCT\n/i.test(p) ? { scheme: "epc_sepa" } : null),
-  ],
-  [
-    "upi",
+    "email",
     (p) => {
-      if (!/^upi:\/\//i.test(p)) return null;
-      if (!/^upi:\/\/pay\?pa=[^&]+/i.test(p)) return null;
-      return { scheme: "upi" };
+      if (/\s/.test(p)) return null;
+      const m = /^([^@\s:]+)@([^@\s]+)\.([^@\s]+)$/.exec(p);
+      if (m === null) return null;
+      if (m[1] === undefined || m[2] === undefined || m[3] === undefined) return null;
+      return { local: m[1], domain: m[2], tld: m[3] };
     },
   ],
   [
@@ -331,15 +302,23 @@ const CLASSIFICATION_PATTERNS: ReadonlyArray<readonly [PayloadType, Classifier]>
     },
   ],
   [
-    "swiss_qr_bill",
+    "epc_sepa",
+    (p) => (/^BCD\n002\n1\nSCT\n/i.test(p) ? { scheme: "epc_sepa" } : null),
+  ],
+  [
+    "geo",
     (p) => {
-      if (!/^SPC\n0100\n/i.test(p)) return null;
-      return { scheme: "swiss_qr_bill" };
+      const m = /^geo:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i.exec(p);
+      if (m === null || m[1] === undefined || m[2] === undefined) return null;
+      return { lat: m[1], lon: m[2] };
     },
   ],
   [
-    "calendar_event",
-    (p) => (/^BEGIN:VEVENT[\s\S]+END:VEVENT\s*$/i.test(p) ? { marker: "BEGIN:VEVENT" } : null),
+    "mecard",
+    (p) => {
+      if (!/^MECARD:.+/i.test(p)) return null;
+      return { scheme: "MECARD" };
+    },
   ],
   [
     "otp_auth",
@@ -350,15 +329,35 @@ const CLASSIFICATION_PATTERNS: ReadonlyArray<readonly [PayloadType, Classifier]>
     },
   ],
   [
-    "email",
+    "sms",
     (p) => {
-      // Email must be checked before URL because URLs without an explicit
-      // scheme can look like a local-part + bare host that email accepts.
-      if (/\s/.test(p)) return null;
-      const m = /^([^@\s]+)@([^@\s]+)\.([^@\s]+)$/.exec(p);
-      if (m === null) return null;
-      if (m[1] === undefined || m[2] === undefined || m[3] === undefined) return null;
-      return { local: m[1], domain: m[2], tld: m[3] };
+      const m = /^sms:([^;:]+)(?:[:](.*))?$/i.exec(p);
+      if (m === null || m[1] === undefined) return null;
+      return { number: m[1], body: m[2] ?? "" };
+    },
+  ],
+  [
+    "swiss_qr_bill",
+    (p) => {
+      if (!/^SPC\n0100\n/i.test(p)) return null;
+      return { scheme: "swiss_qr_bill" };
+    },
+  ],
+  [
+    "tel",
+    (p) => {
+      if (!/^tel:\+?[0-9]+$/i.test(p)) return null;
+      const m = /^tel:([^;]+)/i.exec(p);
+      if (m === null || m[1] === undefined) return null;
+      return { number: m[1] };
+    },
+  ],
+  [
+    "upi",
+    (p) => {
+      if (!/^upi:\/\//i.test(p)) return null;
+      if (!/^upi:\/\/pay\?pa=[^&]+/i.test(p)) return null;
+      return { scheme: "upi" };
     },
   ],
   [
@@ -383,23 +382,27 @@ const CLASSIFICATION_PATTERNS: ReadonlyArray<readonly [PayloadType, Classifier]>
     },
   ],
   [
+    "vcard",
+    (p) => (/^BEGIN:VCARD[\s\S]+END:VCARD\s*$/i.test(p) ? { marker: "BEGIN:VCARD" } : null),
+  ],
+  [
+    "wifi",
+    (p) => {
+      if (!/^WIFI:/i.test(p)) return null;
+      if (!/^WIFI:T:[^;]*;S:[^;]*;P:[^;]*;;$/i.test(p)) return null;
+      return { scheme: "WIFI" };
+    },
+  ],
+  [
     "plain_text",
     (p) => {
-      // plain_text must precede unknown so it is selectable in precedence.
-      // It resolves non-empty inputs that no typed scheme claimed, but does
-      // not apply to deliberately unmatched vectors (which fall through to
-      // unknown).
-      if (p.trim().length === 0) return null;
-      if (/^##deliberately-unmatched-string##$/.test(p)) return null;
+      if (/[\x20-\x7E\u00A0-\uFFFF]/u.test(p) === false) return null;
       return { ...PLAIN_TEXT_DETAILS };
     },
   ],
   [
     "unknown",
     (p) => {
-      // Final fallback. If every typed pattern above failed to match and the
-      // payload is non-empty, we resolve to unknown.
-      if (p.trim().length === 0) return null;
       return { ...UNKNOWN_CLASSIFICATION_DETAILS };
     },
   ],
@@ -481,7 +484,7 @@ export function validateNearMissVectors(): ReadonlyArray<{
   readonly classified: PayloadType;
   readonly rejected: boolean;
 }> {
-  return PATTERN_VECTORS.filter((v) => v.nearMiss !== "").map((v) => {
+  return PATTERN_VECTORS.map((v) => {
     const result = classifyPayload(v.nearMiss);
     const classified: PayloadType = result.success ? result.type : "unknown";
     return {
@@ -501,10 +504,8 @@ export function isDeterministicAcrossVectors(
     if (!isClassificationDeterministic(vector.positive, repetitions, maxLength)) {
       return false;
     }
-    if (vector.nearMiss !== "") {
-      if (!isClassificationDeterministic(vector.nearMiss, repetitions, maxLength)) {
-        return false;
-      }
+    if (!isClassificationDeterministic(vector.nearMiss, repetitions, maxLength)) {
+      return false;
     }
   }
   return true;
@@ -545,10 +546,6 @@ export function auditClassificationContracts(
       continue;
     }
 
-    if (vector.nearMiss === "") {
-      continue;
-    }
-
     const nearMissResult = audit(vector.nearMiss, maxLength);
     if (!nearMissResult.success) {
       mismatches.push({
@@ -582,8 +579,6 @@ export function stampClassificationAudit<T extends Readonly<Record<string, unkno
   classify: (input: unknown, maxLength: number) => ClassificationResult = classifyPayload,
   maxLength: number = DEFAULT_MAX_LENGTH,
 ): StampClassificationAuditResult<T> {
-  void classify;
-
   if (audit.length === 0) {
     return { success: false, error: ERROR_AUDIT_FAILED };
   }
@@ -607,6 +602,8 @@ export function stampClassificationAudit<T extends Readonly<Record<string, unkno
       mismatches: record.mismatches,
     },
   } as T;
+
+  void classify;
 
   return { success: true, target: stamped };
 }
@@ -637,20 +634,16 @@ export function readDecodedPayloadContract(
   }[] = [];
 
   for (const type of PAYLOAD_TYPES) {
-    let positiveMatched = true;
+    let positiveMatched = false;
     let nearMissRejected = true;
 
-    const positiveVector = PATTERN_VECTORS.find((v) => v.type === type);
-    if (positiveVector !== undefined) {
-      const positiveResult = classifyPayload(positiveVector.positive);
-      positiveMatched =
-        positiveResult.success && positiveResult.type === type;
+    const vector = PATTERN_VECTORS.find((v) => v.type === type);
+    if (vector !== undefined) {
+      const positiveResult = classifyPayload(vector.positive);
+      positiveMatched = positiveResult.success && positiveResult.type === type;
 
-      if (positiveVector.nearMiss !== "") {
-        const nearMissResult = classifyPayload(positiveVector.nearMiss);
-        nearMissRejected =
-          nearMissResult.success && nearMissResult.type !== type;
-      }
+      const nearMissResult = classifyPayload(vector.nearMiss);
+      nearMissRejected = !nearMissResult.success || nearMissResult.type !== type;
     }
 
     observed.push({ type, positiveMatched, nearMissRejected });
