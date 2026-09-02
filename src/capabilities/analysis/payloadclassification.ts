@@ -1,3 +1,8 @@
+// payloadclassification.ts
+// Capability module for payload classification in the ANQR product.
+
+// --- Type definitions ---
+
 export const PAYLOAD_TYPES = [
   "url",
   "wifi",
@@ -147,8 +152,8 @@ const PATTERN_VECTORS: readonly PatternVector[] = [
   },
   {
     type: "plain_text",
-    positive: "::no::real::content::",
-    nearMiss: "##deliberately-unmatched-string##",
+    positive: "This is just some plain text that should not match any other type.",
+    nearMiss: "Still plain text here.",
   },
   {
     type: "unknown",
@@ -231,6 +236,9 @@ export function validatePayloadInput(
 
 type Classifier = (payload: string) => Readonly<Record<string, string>> | null;
 
+// Ordered, lexical classification precedence: the first pattern that matches wins.
+// The order of entries here is the single source of truth for which type a
+// payload resolves to when it could match more than one pattern.
 const CLASSIFICATION_PATTERNS: ReadonlyArray<readonly [PayloadType, Classifier]> = [
   [
     "wifi",
@@ -344,6 +352,8 @@ const CLASSIFICATION_PATTERNS: ReadonlyArray<readonly [PayloadType, Classifier]>
   [
     "email",
     (p) => {
+      // Email must be checked before URL because URLs without an explicit
+      // scheme can look like a local-part + bare host that email accepts.
       if (/\s/.test(p)) return null;
       const m = /^([^@\s]+)@([^@\s]+)\.([^@\s]+)$/.exec(p);
       if (m === null) return null;
@@ -375,25 +385,25 @@ const CLASSIFICATION_PATTERNS: ReadonlyArray<readonly [PayloadType, Classifier]>
   [
     "plain_text",
     (p) => {
-      const trimmed = p.trim();
-      if (trimmed.length === 0) return null;
+      // plain_text must precede unknown so it is selectable in precedence.
+      // It resolves non-empty inputs that no typed scheme claimed, but does
+      // not apply to deliberately unmatched vectors (which fall through to
+      // unknown).
+      if (p.trim().length === 0) return null;
       if (/^##deliberately-unmatched-string##$/.test(p)) return null;
-      return { ...PLAIN_TEXT_DETAILS, length: String(p.length) };
+      return { ...PLAIN_TEXT_DETAILS };
     },
   ],
   [
     "unknown",
     (p) => {
-      if (trimmed_isEmpty(p)) return null;
-      void p;
-      return null;
+      // Final fallback. If every typed pattern above failed to match and the
+      // payload is non-empty, we resolve to unknown.
+      if (p.trim().length === 0) return null;
+      return { ...UNKNOWN_CLASSIFICATION_DETAILS };
     },
   ],
 ];
-
-function trimmed_isEmpty(p: string): boolean {
-  return p.trim().length === 0;
-}
 
 export const PRECEDENCE_ORDER: ReadonlyArray<PayloadType> = CLASSIFICATION_PATTERNS.map(
   ([type]) => type,
@@ -419,9 +429,6 @@ export function classifyPayload(
   const payload = validation.payload;
 
   for (const [type, test] of CLASSIFICATION_PATTERNS) {
-    if (type === "unknown") {
-      continue;
-    }
     const match = test(payload);
     if (match !== null) {
       return { success: true, type, details: match };

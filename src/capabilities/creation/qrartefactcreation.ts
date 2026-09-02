@@ -90,7 +90,7 @@ export interface UsedOptions {
 export interface QrArtefact {
   readonly id: string;
   readonly payload: string;
-  readonly modules: readonly (0 | 1)[][];
+  readonly modules: readonly (readonly (0 | 1)[])[];
   readonly sizeModules: number;
   readonly options: UsedOptions;
   readonly contentType: string;
@@ -769,7 +769,7 @@ function buildSyntheticModuleMatrix(
   payload: string,
   sizeModules: number,
   seed: number
-): readonly (0 | 1)[][] {
+): readonly (readonly (0 | 1)[])[] {
   const rows: (0 | 1)[][] = [];
   let state = seed;
   for (let r = 0; r < sizeModules; r += 1) {
@@ -862,6 +862,17 @@ function buildValidatedArtefact(
   return candidate;
 }
 
+function isCreationFailure(value: unknown): value is CreationFailure {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidate = value as { success?: unknown };
+  if (candidate.success !== false) {
+    return false;
+  }
+  return true;
+}
+
 export function produceArtefact(
   inputs: ProduceInputs
 ): { readonly result: CreationResult; readonly mutation: CreationMutation } {
@@ -922,14 +933,9 @@ export function produceArtefact(
   try {
     candidate = buildValidatedArtefact(request, usedOptions);
   } catch (failure: unknown) {
-    if (
-      typeof failure === 'object' &&
-      failure !== null &&
-      'success' in failure &&
-      (failure as { success: unknown }).success === false
-    ) {
+    if (isCreationFailure(failure)) {
       return {
-        result: failure as CreationFailure,
+        result: failure,
         mutation: emptyMutation(before),
       };
     }
@@ -965,17 +971,15 @@ export function createArtefact(
 }
 
 export function previewArtefact(request: CreationRequest): PreviewUpdate {
-  const before = initialRuntimeState();
-  const { result } = produceArtefact({ request, before });
+  const { result } = produceArtefact({ request, before: initialRuntimeState() });
   if (!result.success) {
     return { success: false, failure: result };
   }
-  const usedOptions = resolveOptions(request);
   const frame: PreviewFrame = {
     id: result.artefact.id,
     request: {
       payload: result.artefact.payload,
-      options: usedOptions,
+      options: result.usedOptions,
     },
     artefact: result.artefact,
   };
