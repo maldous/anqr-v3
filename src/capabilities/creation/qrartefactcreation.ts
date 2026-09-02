@@ -260,7 +260,6 @@ export const TRANSITION_STATUSES: readonly TransitionStatus[] = [
   'produced',
 ];
 
-const MAX_SYMBOL_MODULES = 177;
 const MAX_PAYLOAD_BYTES_BY_EC: Readonly<Record<ErrorCorrectionLevel, number>> = {
   L: 2953,
   M: 2331,
@@ -269,35 +268,35 @@ const MAX_PAYLOAD_BYTES_BY_EC: Readonly<Record<ErrorCorrectionLevel, number>> = 
 };
 
 function isErrorCorrectionLevel(value: string): value is ErrorCorrectionLevel {
-  return ERROR_CORRECTION_LEVELS.includes(value as ErrorCorrectionLevel);
+  return (ERROR_CORRECTION_LEVELS as readonly string[]).includes(value);
 }
 
 function isModuleShape(value: string): value is ModuleShape {
-  return MODULE_SHAPES.includes(value as ModuleShape);
+  return (MODULE_SHAPES as readonly string[]).includes(value);
 }
 
 function isOutputFormat(value: string): value is OutputFormat {
-  return OUTPUT_FORMATS.includes(value as OutputFormat);
+  return (OUTPUT_FORMATS as readonly string[]).includes(value);
 }
 
 function isOverlayShape(value: string): value is OverlayShape {
-  return OVERLAY_SHAPES.includes(value as OverlayShape);
+  return (OVERLAY_SHAPES as readonly string[]).includes(value);
 }
 
 function isAnimationStyle(value: string): value is AnimationStyle {
-  return ANIMATION_STYLES.includes(value as AnimationStyle);
+  return (ANIMATION_STYLES as readonly string[]).includes(value);
 }
 
 function isSafetyProfile(value: string): value is SafetyProfile {
-  return SAFETY_PROFILES.includes(value as SafetyProfile);
+  return (SAFETY_PROFILES as readonly string[]).includes(value);
 }
 
 function isRenderProfile(value: string): value is RenderProfile {
-  return RENDER_PROFILES.includes(value as RenderProfile);
+  return (RENDER_PROFILES as readonly string[]).includes(value);
 }
 
 function isQualityAssuranceLevel(value: string): value is QualityAssuranceLevel {
-  return QUALITY_ASSURANCE_LEVELS.includes(value as QualityAssuranceLevel);
+  return (QUALITY_ASSURANCE_LEVELS as readonly string[]).includes(value);
 }
 
 function isMaskPattern(value: number): boolean {
@@ -310,6 +309,10 @@ function isHexColor(value: string): boolean {
 
 function isNonNegativeInteger(value: number): boolean {
   return Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInteger(value: number): boolean {
+  return Number.isInteger(value) && value > 0;
 }
 
 function payloadBytes(payload: string): number {
@@ -355,7 +358,7 @@ function validateCoreOptions(options: CoreOptions): CreationFailure | null {
       optionValue: options.moduleShape,
     };
   }
-  if (!isNonNegativeInteger(options.moduleSizePx) || options.moduleSizePx === 0) {
+  if (!isPositiveInteger(options.moduleSizePx)) {
     return {
       success: false,
       reason: 'invalid-option-value',
@@ -417,7 +420,7 @@ function validateOutputOptions(options: OutputOptions): CreationFailure | null {
       optionValue: options.format,
     };
   }
-  if (!isNonNegativeInteger(options.sizePx) || options.sizePx === 0) {
+  if (!isPositiveInteger(options.sizePx)) {
     return {
       success: false,
       reason: 'invalid-option-value',
@@ -612,66 +615,13 @@ function checkCapacity(
   return null;
 }
 
-function buildSyntheticModuleMatrix(
-  payload: string,
-  sizeModules: number,
-  seed: number
-): readonly (0 | 1)[][] {
-  const rows: (0 | 1)[][] = [];
-  let h = seed;
-  for (let r = 0; r < sizeModules; r += 1) {
-    const row: (0 | 1)[] = [];
-    for (let c = 0; c < sizeModules; c += 1) {
-      h = (h * 1103515245 + 12345) & 0x7fffffff;
-      const payloadBit = payload.length > 0
-        ? (payload.charCodeAt((r + c) % payload.length) & 1)
-        : 0;
-      row.push(((h ^ payloadBit) & 1) === 1 ? 1 : 0);
-    }
-    rows.push(row);
-  }
-  return rows;
-}
-
-function synthesiseArtifactBytes(
-  options: UsedOptions,
-  payload: string,
-  id: string
-): Uint8Array {
-  const header = `ANQR|${id}|${options.output.format}|${payload.length}|`;
-  const headerBytes = new TextEncoder().encode(header);
-  const total = headerBytes.length + payload.length + 4;
-  const out = new Uint8Array(total);
-  out.set(headerBytes, 0);
-  for (let i = 0; i < payload.length; i += 1) {
-    out[headerBytes.length + i] = payload.charCodeAt(i) & 0xff;
-  }
-  out[total - 4] = 0xfe;
-  out[total - 3] = 0xed;
-  out[total - 2] = 0xfa;
-  out[total - 1] = 0xce;
-  return out;
-}
-
 function decodeSyntheticBytes(bytes: Uint8Array): string {
-  if (bytes.length < 4) {
-    return '';
-  }
-  const trailer = bytes.subarray(bytes.length - 4);
-  if (
-    trailer[0] !== 0xfe ||
-    trailer[1] !== 0xed ||
-    trailer[2] !== 0xfa ||
-    trailer[3] !== 0xce
-  ) {
-    return '';
-  }
-  const text = new TextDecoder().decode(bytes.subarray(0, bytes.length - 4));
-  const sep = text.indexOf('|');
+  const header = new TextDecoder().decode(bytes);
+  const sep = header.indexOf('|');
   if (sep < 0) {
     return '';
   }
-  const rest = text.slice(sep + 1);
+  const rest = header.slice(sep + 1);
   const next = rest.indexOf('|');
   if (next < 0) {
     return '';
@@ -690,6 +640,24 @@ function decodeSyntheticBytes(bytes: Uint8Array): string {
     return '';
   }
   return body.slice(0, declared);
+}
+
+function encodePayloadBody(payload: string): Uint8Array {
+  return new TextEncoder().encode(payload);
+}
+
+function synthesiseArtifactBytes(
+  options: UsedOptions,
+  payload: string,
+  id: string
+): Uint8Array {
+  const header = `ANQR|${id}|${options.output.format}|${payload.length}|`;
+  const headerBytes = new TextEncoder().encode(header);
+  const bodyBytes = encodePayloadBody(payload);
+  const out = new Uint8Array(headerBytes.length + bodyBytes.length);
+  out.set(headerBytes, 0);
+  out.set(bodyBytes, headerBytes.length);
+  return out;
 }
 
 export interface CreationRuntimeState {
@@ -760,8 +728,9 @@ export function isRequestedState(state: CreationRuntimeState): boolean {
   return state.status === 'requested';
 }
 
-function seedForOptions(usedOptions: UsedOptions): number {
+function seedForOptions(usedOptions: UsedOptions, payload: string): number {
   const pieces: string[] = [
+    payload,
     usedOptions.core.errorCorrectionLevel,
     String(usedOptions.core.maskPattern),
     usedOptions.core.moduleShape,
@@ -779,10 +748,10 @@ function seedForOptions(usedOptions: UsedOptions): number {
     usedOptions.animation.style,
     String(usedOptions.animation.durationMs),
     usedOptions.safety.profile,
-    usedOptions.safety.blockedPayloads.join('\u0001'),
+    usedOptions.safety.blockedPayloads.join(''),
     usedOptions.metadata.title,
     usedOptions.metadata.description,
-    usedOptions.metadata.tags.join('\u0001'),
+    usedOptions.metadata.tags.join(''),
     usedOptions.qualityAssurance.level,
     String(usedOptions.qualityAssurance.decodeCheck),
     String(usedOptions.qualityAssurance.contrastCheck),
@@ -796,17 +765,38 @@ function seedForOptions(usedOptions: UsedOptions): number {
   return h & 0x7fffffff;
 }
 
+function buildSyntheticModuleMatrix(
+  payload: string,
+  sizeModules: number,
+  seed: number
+): readonly (0 | 1)[][] {
+  const rows: (0 | 1)[][] = [];
+  let state = seed;
+  for (let r = 0; r < sizeModules; r += 1) {
+    const row: (0 | 1)[] = [];
+    for (let c = 0; c < sizeModules; c += 1) {
+      state = (state * 1103515245 + 12345) & 0x7fffffff;
+      const payloadBit = payload.length > 0
+        ? (payload.charCodeAt((r + c) % payload.length) & 1)
+        : 0;
+      row.push(((state ^ payloadBit) & 1) === 1 ? 1 : 0);
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
 function buildProducedArtefact(
   request: CreationRequest,
-  usedOptions: UsedOptions,
-  seed: number
+  usedOptions: UsedOptions
 ): QrArtefact {
+  const seed = seedForOptions(usedOptions, request.payload);
   const id = `artefact-${seed}`;
-  const sizeModules = MAX_SYMBOL_MODULES;
+  const sizeModules = 33;
   const modules = buildSyntheticModuleMatrix(
     request.payload,
     sizeModules,
-    id.length + seed
+    (id.length + seed) >>> 0
   );
   const bytes = synthesiseArtifactBytes(usedOptions, request.payload, id);
   return {
@@ -849,11 +839,33 @@ export function runAudit(
   }
 }
 
-export function produceArtefact(
+export interface ProduceInputs {
+  readonly request: CreationRequest;
+  readonly before: CreationRuntimeState;
+  readonly audit?: (transition: CreationTransition) => void;
+}
+
+function buildValidatedArtefact(
   request: CreationRequest,
-  before: CreationRuntimeState,
-  audit?: (transition: CreationTransition) => void
+  usedOptions: UsedOptions
+): QrArtefact {
+  const candidate = buildProducedArtefact(request, usedOptions);
+  const decoded = decodeSyntheticBytes(candidate.bytes);
+  if (decoded !== request.payload) {
+    const failure: CreationFailure = {
+      success: false,
+      reason: 'decode-mismatch',
+      message: `Decoded payload "${decoded}" did not match requested payload "${request.payload}".`,
+    };
+    throw failure;
+  }
+  return candidate;
+}
+
+export function produceArtefact(
+  inputs: ProduceInputs
 ): { readonly result: CreationResult; readonly mutation: CreationMutation } {
+  const { request, before, audit } = inputs;
   const usedOptions = resolveOptions(request);
 
   const validators: ReadonlyArray<(opts: UsedOptions) => CreationFailure | null> = [
@@ -896,26 +908,32 @@ export function produceArtefact(
     return { result: failure, mutation: emptyMutation(before) };
   }
 
-  const seed = seedForOptions(usedOptions);
-  const candidate = buildProducedArtefact(request, usedOptions, seed);
-
-  const decoded = decodeSyntheticBytes(candidate.bytes);
-  if (decoded !== request.payload) {
-    const failure: CreationFailure = {
-      success: false,
-      reason: 'decode-mismatch',
-      message: `Decoded payload "${decoded}" did not match requested payload.`,
-    };
-    return { result: failure, mutation: emptyMutation(before) };
-  }
-
-  const after = advanceState(before);
+  const next = advanceState(before);
+  const auditTransition: CreationTransition = { previous: before, next };
 
   if (audit !== undefined) {
-    const outcome = runAudit(audit, { previous: before, next: after });
+    const outcome = runAudit(audit, auditTransition);
     if (outcome.kind !== 'ok') {
       return { result: outcome.failure, mutation: emptyMutation(before) };
     }
+  }
+
+  let candidate: QrArtefact;
+  try {
+    candidate = buildValidatedArtefact(request, usedOptions);
+  } catch (failure: unknown) {
+    if (
+      typeof failure === 'object' &&
+      failure !== null &&
+      'success' in failure &&
+      (failure as { success: unknown }).success === false
+    ) {
+      return {
+        result: failure as CreationFailure,
+        mutation: emptyMutation(before),
+      };
+    }
+    throw failure;
   }
 
   const result: CreationSuccess = {
@@ -924,27 +942,31 @@ export function produceArtefact(
     usedOptions,
   };
 
-  return { result, mutation: recordedMutation(before, after) };
+  return { result, mutation: recordedMutation(before, next) };
 }
 
 export function buildExportableArtefact(
   request: CreationRequest
 ): QrArtefact {
-  const usedOptions = resolveOptions(request);
-  return buildProducedArtefact(request, usedOptions, seedForOptions(usedOptions));
+  const before = initialRuntimeState();
+  const { result } = produceArtefact({ request, before });
+  if (!result.success) {
+    throw new Error(result.message);
+  }
+  return result.artefact;
 }
 
 export function createArtefact(
   request: CreationRequest,
   audit?: (transition: CreationTransition) => void
 ): CreationResult {
-  const { result } = produceArtefact(request, initialRuntimeState(), audit);
+  const { result } = produceArtefact({ request, before: initialRuntimeState(), audit });
   return result;
 }
 
 export function previewArtefact(request: CreationRequest): PreviewUpdate {
   const before = initialRuntimeState();
-  const { result } = produceArtefact(request, before);
+  const { result } = produceArtefact({ request, before });
   if (!result.success) {
     return { success: false, failure: result };
   }
@@ -965,7 +987,12 @@ export function exportArtefact(request: CreationRequest): CreationResult {
 }
 
 export function buildPreviewArtefact(request: CreationRequest): QrArtefact {
-  return buildExportableArtefact(request);
+  const before = initialRuntimeState();
+  const { result } = produceArtefact({ request, before });
+  if (!result.success) {
+    throw new Error(result.message);
+  }
+  return result.artefact;
 }
 
 export function previewMatchesExport(

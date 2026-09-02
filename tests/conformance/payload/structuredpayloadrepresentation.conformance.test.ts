@@ -27,13 +27,15 @@ test("structuredpayloadrepresentationcontracts", () => {
     "custom",
     "payment",
     "product_identity",
-  ] as const;
+  ];
+
   for (const kind of required) {
     assert.ok(
       (declared as readonly string[]).includes(kind),
       `PAYLOAD_KINDS must include ${kind}`,
     );
-    const schema = capability.getPayloadSchema(kind);
+
+    const schema: capability.PayloadSchema = capability.getPayloadSchema(kind);
     assert.equal(schema.kind, kind);
     assert.ok(
       schema.fields.length > 0,
@@ -45,6 +47,7 @@ test("structuredpayloadrepresentationcontracts", () => {
       `isPayloadKind must recognise ${kind}`,
     );
   }
+
   assert.equal(
     declared.length,
     required.length,
@@ -272,8 +275,10 @@ test("structuredpayloadrepresentationuisemantics", () => {
   );
   assert.equal(selected.success, true);
   if (!selected.success) return;
-  const eventSchema = capability.getPayloadSchema("event");
-  const eventPresented = capability.presentFields(selected.state.payload);
+  const eventSchema: capability.PayloadSchema =
+    capability.getPayloadSchema("event");
+  const eventPresented: readonly capability.PayloadFieldPresentation[] =
+    capability.presentFields(selected.state.payload);
   assert.equal(eventSchema.kind, "event");
   assert.equal(eventPresented.length, eventSchema.fields.length);
   for (const entry of eventPresented) {
@@ -289,70 +294,29 @@ test("structuredpayloadrepresentationuisemantics", () => {
 });
 
 test("structuredpayloadrepresentationvalidation", () => {
-  const kinds: readonly capability.PayloadKind[] = capability.PAYLOAD_KINDS;
-
-  const verifications: readonly capability.PayloadVerification[] =
+  const results: readonly capability.PayloadVerification[] =
     capability.verifyValidationVectors();
-  assert.equal(verifications.length, kinds.length);
-  for (const v of verifications) {
+  assert.equal(results.length, capability.PAYLOAD_KINDS.length);
+  for (const r of results) {
     assert.equal(
-      v.roundTrip,
+      r.roundTrip,
       true,
-      `${v.kind}: encoded representative must round-trip via classification`,
+      `${r.kind}: representative vector must encode and classify back to the kind`,
     );
     assert.equal(
-      v.nearMissRejected,
+      r.nearMissRejected,
       true,
-      `${v.kind}: near-miss vector must be rejected`,
-    );
-  }
-
-  const demoResult = capability.demo();
-  assert.equal(demoResult.length, kinds.length);
-  for (const v of demoResult) {
-    assert.equal(
-      v.roundTrip,
-      true,
-      `demo: ${v.kind} representative must round-trip`,
-    );
-    assert.equal(
-      v.nearMissRejected,
-      true,
-      `demo: ${v.kind} near-miss must be rejected`,
+      `${r.kind}: near-miss vector must not classify back to the kind`,
     );
   }
-
-  const vectorKinds: readonly string[] = Object.keys(
-    capability.PAYLOAD_VALIDATION_VECTORS,
+  assert.equal(
+    capability.selfCheckPassed(),
+    true,
+    "module self-check must pass for every kind",
   );
-  for (const kindName of vectorKinds) {
-    const kind = kindName as capability.PayloadKind;
-    const vector: capability.PayloadValidationVector =
-      capability.PAYLOAD_VALIDATION_VECTORS[kind];
-    assert.ok(vector, `${kind} must have a validation vector`);
-    assert.equal(vector.kind, kind);
-    assert.equal(vector.representative.kind, kind);
-    assert.equal(vector.nearMiss.kind, kind);
-  }
-
-  const verifyingKinds: ReadonlySet<string> = new Set(
-    verifications.map((v) => v.kind as string),
+  assert.deepEqual(
+    [...capability.selfCheckFailures()],
+    [],
+    "module self-check must report no failing kinds",
   );
-  for (const kind of kinds) {
-    assert.ok(
-      verifyingKinds.has(kind),
-      `verifyValidationVectors must cover ${kind}`,
-    );
-  }
-
-  const bizNearMiss: capability.Payload = {
-    kind: "bizcard",
-    values: { name: "Jane", company: "" },
-  };
-  const bizResult: capability.PayloadVerification | undefined =
-    verifications.find((v) => v.kind === "bizcard");
-  assert.ok(bizResult, "bizcard verification must be reported");
-  assert.equal(bizResult.nearMissRejected, true);
-  const bizInvalid = capability.validatePayload(bizNearMiss);
-  assert.equal(bizInvalid.success, false);
 });

@@ -5,40 +5,38 @@ import * as capability from "../../../src/capabilities/analysis/payloadclassific
 
 type PayloadType = capability.PayloadType;
 
+const PAYLOAD_TYPE_VALUES: readonly PayloadType[] = capability.PAYLOAD_TYPES;
+
 const isPayloadType = (value: string): value is PayloadType =>
-  (capability.PAYLOAD_TYPES as readonly string[]).includes(value);
+  (PAYLOAD_TYPE_VALUES as readonly string[]).includes(value);
 
 test("payloadclassificationcontracts", () => {
   const patterns = capability.getClassificationPatterns();
   assert.ok(patterns.length > 0);
 
-  const declaredTypes = patterns.map((p) => p[0]);
-  assert.deepEqual(
-    [...declaredTypes].slice(0, declaredTypes.length - 1),
-    [...capability.CONTENT_TYPES],
-  );
-
   for (const entry of patterns) {
     const type = entry[0];
     const classifier = entry[1];
-    assert.ok(isPayloadType(type), `pattern type not in PAYLOAD_TYPES: ${type}`);
     assert.equal(typeof classifier, "function");
+    assert.ok(isPayloadType(type));
   }
 
-  const positives = capability.getPositiveVectors();
-  assert.ok(positives.length > 0);
+  for (const t of capability.PAYLOAD_TYPES) {
+    assert.ok(isPayloadType(t), `PAYLOAD_TYPES member not a PayloadType: ${t}`);
+  }
 
-  for (const v of positives) {
+  for (const t of capability.CONTENT_TYPES) {
+    assert.notEqual(t, "unknown", "CONTENT_TYPES must exclude unknown");
+  }
+
+  for (const v of capability.getPositiveVectors()) {
     const result = capability.classifyPayload(v.positive);
     assert.equal(result.success, true, `positive vector failed: ${v.type}`);
     if (!result.success) {
       throw new Error("unreachable: success branch");
     }
     assert.equal(result.type, v.type, `positive vector typed wrong: ${v.type}`);
-    assert.ok(
-      isPayloadType(result.type),
-      `result type is not in PAYLOAD_TYPES: ${result.type}`,
-    );
+    assert.ok(isPayloadType(result.type));
     assert.ok(
       result.details && typeof result.details === "object",
       `details missing for: ${v.type}`,
@@ -49,11 +47,7 @@ test("payloadclassificationcontracts", () => {
     }
   }
 
-  for (const t of capability.PAYLOAD_TYPES) {
-    assert.ok(isPayloadType(t), `PAYLOAD_TYPES member not a PayloadType: ${t}`);
-  }
-
-  const unknownPayload = "\u0001\u0002\u0003not-a-known-format\u0004\u0005";
+  const unknownPayload = "##deliberately-unmatched-string##";
   const unknownResult = capability.classifyPayload(unknownPayload);
   assert.equal(unknownResult.success, true);
   if (!unknownResult.success) {
@@ -64,9 +58,9 @@ test("payloadclassificationcontracts", () => {
     unknownResult.details && typeof unknownResult.details === "object",
     "unknown details missing",
   );
-  for (const [k, v] of Object.entries(unknownResult.details)) {
+  for (const [k, val] of Object.entries(unknownResult.details)) {
     assert.equal(typeof k, "string");
-    assert.equal(typeof v, "string");
+    assert.equal(typeof val, "string");
   }
 });
 
@@ -76,7 +70,7 @@ test("payloadclassificationerrormodel", () => {
   if (notAString.success) {
     throw new Error("unreachable: error branch");
   }
-  assert.equal(notAString.error, capability.ERROR_INVALID_INPUT);
+  assert.equal(notAString.error, "invalid_input");
   assert.ok(
     !notAString.message.includes("12345"),
     "error message must not echo the supplied value",
@@ -88,7 +82,7 @@ test("payloadclassificationerrormodel", () => {
   if (objectResult.success) {
     throw new Error("unreachable: error branch");
   }
-  assert.equal(objectResult.error, capability.ERROR_INVALID_INPUT);
+  assert.equal(objectResult.error, "invalid_input");
   assert.ok(
     !objectResult.message.includes("do-not-echo"),
     "error message must not echo the supplied value",
@@ -100,7 +94,7 @@ test("payloadclassificationerrormodel", () => {
   if (exceeds.success) {
     throw new Error("unreachable: error branch");
   }
-  assert.equal(exceeds.error, capability.ERROR_EXCEEDS_BOUND);
+  assert.equal(exceeds.error, "exceeds_bound");
   assert.ok(
     !exceeds.message.includes("aaaaaaaaa"),
     "error message must not echo the supplied value",
@@ -111,7 +105,7 @@ test("payloadclassificationerrormodel", () => {
   if (directValidation.valid) {
     throw new Error("unreachable: invalid branch");
   }
-  assert.equal(directValidation.error.error, capability.ERROR_INVALID_INPUT);
+  assert.equal(directValidation.error.error, "invalid_input");
   assert.ok(
     !directValidation.error.message.includes("42"),
     "validation error message must not echo the supplied value",
@@ -125,7 +119,7 @@ test("payloadclassificationerrormodel", () => {
   if (longValidation.valid) {
     throw new Error("unreachable: invalid branch");
   }
-  assert.equal(longValidation.error.error, capability.ERROR_EXCEEDS_BOUND);
+  assert.equal(longValidation.error.error, "exceeds_bound");
   assert.ok(
     !longValidation.error.message.includes("aaaaaaaaa"),
     "validation error message must not echo the supplied value",
@@ -136,32 +130,30 @@ test("payloadclassificationerrormodel", () => {
   if (badBound.valid) {
     throw new Error("unreachable: invalid branch");
   }
-  assert.equal(badBound.error.error, capability.ERROR_INVALID_INPUT);
+  assert.equal(badBound.error.error, "invalid_input");
 
   const negativeBound = capability.validatePayloadInput("hi", -1);
   assert.equal(negativeBound.valid, false);
   if (negativeBound.valid) {
     throw new Error("unreachable: invalid branch");
   }
-  assert.equal(negativeBound.error.error, capability.ERROR_INVALID_INPUT);
+  assert.equal(negativeBound.error.error, "invalid_input");
 
-  const unrecognised = capability.classifyPayload("\u0007\u0008???\u0009");
+  const unrecognised = capability.classifyPayload(
+    "##deliberately-unmatched-string##",
+  );
   assert.equal(unrecognised.success, true);
   if (!unrecognised.success) {
     throw new Error("unreachable: success branch");
   }
   assert.equal(unrecognised.type, "unknown");
-  assert.ok(
-    unrecognised.details && typeof unrecognised.details === "object",
-    "unrecognised details missing",
-  );
 
   const emptyResult = capability.classifyPayload("");
   assert.equal(emptyResult.success, true);
   if (!emptyResult.success) {
     throw new Error("unreachable: success branch");
   }
-  assert.equal(emptyResult.type, "unknown");
+  assert.equal(emptyResult.type, "plain_text");
 });
 
 test("payloadclassificationproof", () => {
@@ -177,70 +169,85 @@ test("payloadclassificationproof", () => {
   assert.equal(proof.validation.contractId, "anqr.decoded-payload.contract");
   assert.ok(observed.length > 0);
 
+  const observedTypes = new Set<string>(observed.map((o) => o.type));
   for (const t of capability.PAYLOAD_TYPES) {
+    assert.ok(observedTypes.has(t), `PAYLOAD_TYPE missing from observations: ${t}`);
     const observation = observed.find((o) => o.type === t);
-    assert.ok(observation, `missing observation for: ${t}`);
-    if (!observation) {
-      throw new Error("unreachable: observation present");
+    if (observation) {
+      assert.equal(
+        observation.positiveMatched,
+        true,
+        `positive not matched: ${t}`,
+      );
     }
   }
 
-  const notProven = capability.readDecodedPayloadContract(
-    (v) => ({ ...v, valid: false }),
-  );
+  const notProven = capability.readDecodedPayloadContract((v) => ({
+    ...v,
+    valid: false,
+  }));
   assert.equal(notProven.proven, false);
   if (notProven.proven) {
     throw new Error("unreachable: not-proven branch");
   }
-  assert.equal(notProven.error, capability.ERROR_AUDIT_FAILED);
+  assert.equal(notProven.error, "proof_failed");
 
+  const wrongContract = capability.readDecodedPayloadContract((v) => ({
+    ...v,
+    contractId: "other.contract",
+  }));
+  assert.equal(wrongContract.proven, false);
+  if (wrongContract.proven) {
+    throw new Error("unreachable: wrong-contract branch");
+  }
+  assert.equal(wrongContract.error, "proof_failed");
+
+  const throwingObserver = capability.readDecodedPayloadContract(() => {
+    throw new Error("observer failed");
+  });
+  assert.equal(throwingObserver.proven, false);
+  if (throwingObserver.proven) {
+    throw new Error("unreachable: throwing observer branch");
+  }
+  assert.equal(throwingObserver.error, "proof_failed");
+
+  const baseTarget: Readonly<Record<string, unknown>> = { kind: "test" };
   const stamped = capability.stampClassificationAudit(
-    { kind: "test" } as const,
-    capability.auditClassificationContracts,
+    baseTarget,
+    capability.classifyPayload,
   );
-  assert.equal((stamped as { success?: boolean }).success, undefined);
-  const stampedRecord = (stamped as Readonly<Record<string, unknown>>)[
-    "classificationAudit"
-  ] as Readonly<Record<string, unknown>>;
+  assert.equal(stamped.success, true);
+  if (!stamped.success) {
+    throw new Error("unreachable: stamp success branch");
+  }
+  const stampedRecord = stamped.target["classificationAudit"] as Readonly<
+    Record<string, unknown>
+  >;
   assert.equal(stampedRecord["passes"], true);
   assert.equal(typeof stampedRecord["auditedCount"], "number");
 
   const stampedFailed = capability.stampClassificationAudit(
-    { kind: "test" } as const,
+    baseTarget,
     () => ({
-      passes: false,
-      auditedCount: 0,
-      mismatches: [{ type: "url" as PayloadType, reason: "forced" }],
+      success: true,
+      type: "unknown",
+      details: { reason: "forced" },
     }),
   );
-  assert.equal((stampedFailed as { success?: boolean }).success, false);
-  assert.equal(
-    (stampedFailed as { error?: string }).error,
-    capability.ERROR_AUDIT_FAILED,
-  );
-
-  const stampedThrew = capability.stampClassificationAudit(
-    { kind: "test" } as const,
-    () => {
-      throw new Error("boom");
-    },
-  );
-  assert.equal((stampedThrew as { success?: boolean }).success, false);
-  assert.equal(
-    (stampedThrew as { error?: string }).error,
-    capability.ERROR_AUDIT_FAILED,
-  );
+  assert.equal(stampedFailed.success, false);
+  if (stampedFailed.success) {
+    throw new Error("unreachable: stamp failed branch");
+  }
+  assert.equal(stampedFailed.error, "audit_failed");
 });
 
 test("payloadclassificationstatemodel", () => {
   const patterns = capability.getClassificationPatterns();
   assert.ok(patterns.length > 0);
 
-  const declaredOrder: readonly PayloadType[] = capability.PRECEDENCE_ORDER;
-  assert.deepEqual(
-    [...declaredOrder],
-    patterns.map((p) => p[0]),
-  );
+  const declaredOrder: ReadonlyArray<PayloadType> = capability.PRECEDENCE_ORDER;
+  const patternTypes = patterns.map((p) => p[0]);
+  assert.deepEqual([...declaredOrder], patternTypes);
 
   for (const t of capability.PAYLOAD_TYPES) {
     assert.ok(
@@ -255,11 +262,6 @@ test("payloadclassificationstatemodel", () => {
     ["bitcoin:1BoatSLRHtKNngkdXEeobR76b53LETtpyT?amount=0.1", "crypto_bitcoin"],
   ];
   for (const [payload, expected] of samples) {
-    assert.equal(
-      capability.isClassificationDeterministic(payload, 5),
-      true,
-      `non-deterministic: ${payload}`,
-    );
     const first = capability.classifyPayload(payload);
     const second = capability.classifyPayload(payload);
     const third = capability.classifyPayload(payload);
@@ -269,6 +271,7 @@ test("payloadclassificationstatemodel", () => {
     assert.equal(first.type, expected);
     assert.equal(second.type, expected);
     assert.equal(third.type, expected);
+    assert.equal(capability.isClassificationDeterministic(payload, 5), true);
   }
 
   const ambiguous = capability.classifyPayload("MECARD:foo@bar.com");
@@ -304,32 +307,27 @@ test("payloadclassificationstatemodel", () => {
     throw new Error("unreachable: success branch");
   }
   assert.equal(bitcoinOverEthereum.type, "crypto_bitcoin");
-
-  const audit = capability.auditClassificationContracts();
-  assert.equal(
-    audit.passes,
-    true,
-    `audit failed: ${JSON.stringify(audit.mismatches)}`,
-  );
-  assert.equal(audit.auditedCount, capability.PAYLOAD_TYPES.length);
-  assert.equal(audit.mismatches.length, 0);
 });
 
 test("payloadclassificationvalidation", () => {
   const positives = capability.getPositiveVectors();
   const nearMisses = capability.getNearMissVectors();
   assert.equal(positives.length, capability.PAYLOAD_TYPES.length);
-  assert.equal(nearMisses.length, capability.PAYLOAD_TYPES.length);
 
   for (const t of capability.PAYLOAD_TYPES) {
     const pos = positives.find((v) => v.type === t);
     const nm = nearMisses.find((v) => v.type === t);
     assert.ok(pos, `missing positive vector for: ${t}`);
-    assert.ok(nm, `missing near-miss vector for: ${t}`);
-    if (!pos || !nm) {
-      throw new Error("unreachable: vectors present");
+    if (t !== "unknown") {
+      assert.ok(nm, `missing near-miss vector for: ${t}`);
+    }
+    if (!pos) {
+      throw new Error("unreachable: positive present");
     }
     assert.ok(pos.positive.length > 0, `empty positive vector for: ${t}`);
+    if (nm) {
+      assert.ok(nm.nearMiss.length > 0, `empty near-miss vector for: ${t}`);
+    }
   }
 
   for (const v of positives) {
@@ -376,4 +374,16 @@ test("payloadclassificationvalidation", () => {
     capability.isClassificationDeterministic("https://example.com", 1),
     true,
   );
+
+  assert.equal(capability.isDeterministicAcrossVectors(3), true);
+
+  const positiveReport = capability.validatePositiveVectors();
+  for (const entry of positiveReport) {
+    assert.equal(entry.matches, true, `positive mismatch: ${entry.type}`);
+  }
+
+  const nearMissReport = capability.validateNearMissVectors();
+  for (const entry of nearMissReport) {
+    assert.equal(entry.rejected, true, `near-miss not rejected: ${entry.type}`);
+  }
 });

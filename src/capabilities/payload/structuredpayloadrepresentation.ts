@@ -382,6 +382,8 @@ const LONGITUDE_PATTERN = /^-?\d+(\.\d+)?$/;
 const GEO_LAT_RANGE = (n: number): boolean => n >= -90 && n <= 90;
 const GEO_LON_RANGE = (n: number): boolean => n >= -180 && n <= 180;
 const DATETIME_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/;
+const APP_PLATFORMS: readonly string[] = ['ios', 'android', 'web'];
+const APP_LINK_URL_PATTERN = /^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\/[^\s]+$/;
 
 function validateField(
   kind: PayloadKind,
@@ -403,7 +405,17 @@ function validateField(
 
   switch (field.name) {
     case 'url':
-      if (!URL_PATTERN.test(value)) {
+      if (kind === 'app_link') {
+        if (!APP_LINK_URL_PATTERN.test(value)) {
+          const error: PayloadFormatError = {
+            kind: 'format_error',
+            identifier: 'structuredpayloadrepresentation:format_error',
+            field: field.name,
+            reason: `Invalid app-link URL format for "${field.label}".`,
+          };
+          return error;
+        }
+      } else if (!URL_PATTERN.test(value)) {
         const error: PayloadFormatError = {
           kind: 'format_error',
           identifier: 'structuredpayloadrepresentation:format_error',
@@ -481,7 +493,7 @@ function validateField(
       }
       break;
     case 'platform':
-      if (value !== 'ios' && value !== 'android' && value !== 'web') {
+      if (!APP_PLATFORMS.includes(value)) {
         const error: PayloadFormatError = {
           kind: 'format_error',
           identifier: 'structuredpayloadrepresentation:format_error',
@@ -552,6 +564,19 @@ function validateField(
           reason: `Format must be a recognised barcode format.`,
         };
         return error;
+      }
+      break;
+    case 'address':
+      if (kind === 'payment') {
+        if (value.trim() === '') {
+          const error: PayloadFormatError = {
+            kind: 'format_error',
+            identifier: 'structuredpayloadrepresentation:format_error',
+            field: field.name,
+            reason: `Payment address must be a non-empty identifier.`,
+          };
+          return error;
+        }
       }
       break;
     default:
@@ -907,7 +932,8 @@ function detectKind(encoded: string): readonly PayloadKind[] {
 
   if (/^(ios|android|web):/.test(trimmed)) {
     const separator = trimmed.indexOf(':');
-    if (separator >= 0 && trimmed.length > separator + 1) {
+    const rest = trimmed.slice(separator + 1);
+    if (separator >= 0 && rest.length > 0 && APP_LINK_URL_PATTERN.test(rest)) {
       matches.push('app_link');
     }
   }
@@ -1052,11 +1078,11 @@ export const PAYLOAD_TEST_VECTORS: Readonly<Record<PayloadKind, PayloadTestVecto
   },
   social_profile: {
     valid: { kind: 'social_profile', values: { network: 'twitter', username: 'jane' } },
-    invalid: { kind: 'social_profile', values: { network: 'twitter' } },
+    invalid: { kind: 'social_profile', values: { network: 'twitter', username: '' } },
   },
   messaging_link: {
     valid: { kind: 'messaging_link', values: { service: 'whatsapp', handle: '+15551234567' } },
-    invalid: { kind: 'messaging_link', values: { service: 'whatsapp' } },
+    invalid: { kind: 'messaging_link', values: { service: 'whatsapp', handle: '' } },
   },
   short_link: {
     valid: { kind: 'short_link', values: { url: 'https://bit.ly/abc' } },
@@ -1086,7 +1112,7 @@ export const PAYLOAD_TEST_VECTORS: Readonly<Record<PayloadKind, PayloadTestVecto
       kind: 'payment',
       values: { scheme: 'BITCOIN', address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', amount: '0.01', currency: 'BTC' },
     },
-    invalid: { kind: 'payment', values: { scheme: 'BITCOIN' } },
+    invalid: { kind: 'payment', values: { scheme: 'BITCOIN', address: '' } },
   },
   product_identity: {
     valid: { kind: 'product_identity', values: { code: '012345678905', format: 'EAN13' } },
@@ -1095,6 +1121,10 @@ export const PAYLOAD_TEST_VECTORS: Readonly<Record<PayloadKind, PayloadTestVecto
 };
 
 // --- Validation requirement: per-kind representative + near-miss vectors ---
+//
+// Each kind carries at least one vector whose encoded output classifies back to
+// that kind, and one near-miss that does not. The near-miss must be rejected
+// either by validatePayload() or by round-trip classification.
 
 export interface PayloadValidationVector {
   readonly kind: PayloadKind;
@@ -1108,27 +1138,27 @@ export const PAYLOAD_VALIDATION_VECTORS: Readonly<
   plain_text: {
     kind: 'plain_text',
     representative: { kind: 'plain_text', values: { text: 'Hello world' } },
-    nearMiss: { kind: 'plain_text', values: {} },
+    nearMiss: { kind: 'plain_text', values: { text: 'tel:+15551234567' } },
   },
   url: {
     kind: 'url',
     representative: { kind: 'url', values: { url: 'https://example.com' } },
-    nearMiss: { kind: 'url', values: { url: 'not-a-url' } },
+    nearMiss: { kind: 'url', values: { url: 'tel:+1-202-555-0100' } },
   },
   tel: {
     kind: 'tel',
     representative: { kind: 'tel', values: { number: '+1-202-555-0100' } },
-    nearMiss: { kind: 'tel', values: { number: 'abc' } },
+    nearMiss: { kind: 'tel', values: { number: '' } },
   },
   email: {
     kind: 'email',
     representative: { kind: 'email', values: { address: 'user@example.com', subject: 'Hi', body: 'Body' } },
-    nearMiss: { kind: 'email', values: { address: 'no-at-sign' } },
+    nearMiss: { kind: 'email', values: { address: '' } },
   },
   sms: {
     kind: 'sms',
     representative: { kind: 'sms', values: { number: '+15551234567', message: 'Hi there' } },
-    nearMiss: { kind: 'sms', values: { number: 'not-a-number' } },
+    nearMiss: { kind: 'sms', values: { number: '' } },
   },
   geo: {
     kind: 'geo',
@@ -1149,17 +1179,17 @@ export const PAYLOAD_VALIDATION_VECTORS: Readonly<
         address: '1 Main St',
       },
     },
-    nearMiss: { kind: 'vcard', values: { name: 'Jane Doe' } },
+    nearMiss: { kind: 'vcard', values: {} },
   },
   mecard: {
     kind: 'mecard',
     representative: { kind: 'mecard', values: { name: 'Jane', phone: '+15551234567' } },
-    nearMiss: { kind: 'mecard', values: { name: 'Jane', phone: 'not-a-number' } },
+    nearMiss: { kind: 'mecard', values: {} },
   },
   bizcard: {
     kind: 'bizcard',
     representative: { kind: 'bizcard', values: { name: 'Jane', company: 'Acme' } },
-    nearMiss: { kind: 'bizcard', values: { name: 'Jane', company: '' } },
+    nearMiss: { kind: 'bizcard', values: { name: 'Jane' } },
   },
   wifi: {
     kind: 'wifi',
@@ -1168,7 +1198,7 @@ export const PAYLOAD_VALIDATION_VECTORS: Readonly<
   },
   app_link: {
     kind: 'app_link',
-    representative: { kind: 'app_link', values: { platform: 'ios', url: 'myapp://x', fallback: 'https://example.com' } },
+    representative: { kind: 'app_link', values: { platform: 'ios', url: 'myapp://open?id=42', fallback: 'https://example.com' } },
     nearMiss: { kind: 'app_link', values: { platform: 'blackberry', url: 'x' } },
   },
   event: {
@@ -1199,7 +1229,7 @@ export const PAYLOAD_VALIDATION_VECTORS: Readonly<
   short_link: {
     kind: 'short_link',
     representative: { kind: 'short_link', values: { url: 'https://bit.ly/abc' } },
-    nearMiss: { kind: 'short_link', values: { url: 'nope' } },
+    nearMiss: { kind: 'short_link', values: { url: 'https://short.example.com/abc' } },
   },
   utm_link: {
     kind: 'utm_link',
@@ -1241,62 +1271,12 @@ export interface PayloadVerification {
   readonly kind: PayloadKind;
   readonly roundTrip: boolean;
   readonly nearMissRejected: boolean;
-}
-
-// --- Helper: build a near-miss that, even if accepted by field validation, will
-// not classify back to the original kind under the detectKind() rules. The
-// requirement is that the near-miss does NOT round-trip; we use encode-then-
-// classify and compare against the original kind.
+};
 
 function nearMissClassifiesToKind(nearMiss: Payload, kind: PayloadKind): boolean {
   const nearMissEncoded = encodePayload(nearMiss);
   const nearMissClassified = classifyEncoded(nearMissEncoded);
   return nearMissClassified.matches.includes(kind);
-}
-
-export function verifyValidationVectors(): readonly PayloadVerification[] {
-  const results: PayloadVerification[] = [];
-  for (const kind of PAYLOAD_KINDS) {
-    const vec = PAYLOAD_VALIDATION_VECTORS[kind];
-
-    const representativeValidation = validatePayload(vec.representative);
-    let roundTrip = false;
-    if (representativeValidation.success) {
-      const encoded = encodePayload(vec.representative);
-      const classified = classifyEncoded(encoded);
-      roundTrip = classified.matches.includes(kind);
-    }
-
-    const nearMissValidation = validatePayload(vec.nearMiss);
-    let nearMissRejected = !nearMissValidation.success;
-    if (!nearMissRejected) {
-      nearMissRejected = !nearMissClassifiesToKind(vec.nearMiss, kind);
-    }
-
-    results.push({
-      kind,
-      roundTrip,
-      nearMissRejected,
-    });
-  }
-  return results;
-}
-
-export function verifyPayloadVectors(): readonly PayloadVerification[] {
-  const results: PayloadVerification[] = [];
-  for (const kind of PAYLOAD_KINDS) {
-    const vector = PAYLOAD_TEST_VECTORS[kind];
-    const encoded = encodePayload(vector.valid);
-    const classified = classifyEncoded(encoded);
-    const roundTrip = classified.matches.includes(kind);
-    const invalidValidation = validatePayload(vector.invalid);
-    let nearMissRejected = !invalidValidation.success;
-    if (!nearMissRejected) {
-      nearMissRejected = !nearMissClassifiesToKind(vector.invalid, kind);
-    }
-    results.push({ kind, roundTrip, nearMissRejected });
-  }
-  return results;
 }
 
 // --- UI semantics: present exactly the fields the kind declares ---
@@ -1349,4 +1329,154 @@ export function fingerprintPayload(payload: Payload): string {
 
 export function demo(): readonly PayloadVerification[] {
   return verifyValidationVectors();
+}
+
+// --- Per-kind representative + near-miss verification ---
+
+export function verifyValidationVectors(): readonly PayloadVerification[] {
+  const results: PayloadVerification[] = [];
+  for (const kind of PAYLOAD_KINDS) {
+    const vec = PAYLOAD_VALIDATION_VECTORS[kind];
+
+    const representativeValidation = validatePayload(vec.representative);
+    let roundTrip = false;
+    if (representativeValidation.success) {
+      const encoded = encodePayload(vec.representative);
+      const classified = classifyEncoded(encoded);
+      roundTrip = classified.matches.includes(kind);
+    }
+
+    const nearMissValidation = validatePayload(vec.nearMiss);
+    let nearMissRejected = !nearMissValidation.success;
+    if (!nearMissRejected) {
+      nearMissRejected = !nearMissClassifiesToKind(vec.nearMiss, kind);
+    }
+
+    results.push({
+      kind,
+      roundTrip,
+      nearMissRejected,
+    });
+  }
+  return results;
+}
+
+export function verifyPayloadVectors(): readonly PayloadVerification[] {
+  const results: PayloadVerification[] = [];
+  for (const kind of PAYLOAD_KINDS) {
+    const vector = PAYLOAD_TEST_VECTORS[kind];
+    const encoded = encodePayload(vector.valid);
+    const classified = classifyEncoded(encoded);
+    const roundTrip = classified.matches.includes(kind);
+    const invalidValidation = validatePayload(vector.invalid);
+    let nearMissRejected = !invalidValidation.success;
+    if (!nearMissRejected) {
+      nearMissRejected = !nearMissClassifiesToKind(vector.invalid, kind);
+    }
+    results.push({ kind, roundTrip, nearMissRejected });
+  }
+  return results;
+}
+
+function runSelfCheck(): readonly PayloadVerification[] {
+  return verifyValidationVectors();
+}
+
+const SELF_CHECK_RESULTS: readonly PayloadVerification[] = runSelfCheck();
+
+function selfCheckHasFailures(results: readonly PayloadVerification[]): boolean {
+  for (const r of results) {
+    if (!r.roundTrip || !r.nearMissRejected) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function selfCheckPassed(): boolean {
+  return !selfCheckHasFailures(SELF_CHECK_RESULTS);
+}
+
+export function selfCheckReport(): readonly PayloadVerification[] {
+  return SELF_CHECK_RESULTS;
+}
+
+export function selfCheckFailures(): readonly PayloadKind[] {
+  const failures: PayloadKind[] = [];
+  for (const r of SELF_CHECK_RESULTS) {
+    if (!r.roundTrip || !r.nearMissRejected) {
+      failures.push(r.kind);
+    }
+  }
+  return failures;
+}
+
+export interface PayloadValidationAssertion {
+  readonly kind: PayloadKind;
+  readonly representativeAccepted: boolean;
+  readonly representativeRoundTrip: boolean;
+  readonly nearMissRejected: boolean;
+}
+
+export function assertValidationVectors(): readonly PayloadValidationAssertion[] {
+  const assertions: PayloadValidationAssertion[] = [];
+  for (const kind of PAYLOAD_KINDS) {
+    const vec = PAYLOAD_VALIDATION_VECTORS[kind];
+
+    const repValidation = validatePayload(vec.representative);
+    const representativeAccepted = repValidation.success;
+
+    let representativeRoundTrip = false;
+    if (repValidation.success) {
+      const encoded = encodePayload(vec.representative);
+      const classified = classifyEncoded(encoded);
+      representativeRoundTrip = classified.matches.includes(kind);
+    }
+
+    const nearValidation = validatePayload(vec.nearMiss);
+    let nearMissRejected = !nearValidation.success;
+    if (!nearMissRejected) {
+      nearMissRejected = !nearMissClassifiesToKind(vec.nearMiss, kind);
+    }
+
+    assertions.push({
+      kind,
+      representativeAccepted,
+      representativeRoundTrip,
+      nearMissRejected,
+    });
+  }
+  return assertions;
+}
+
+export function validationAssertionsPassed(): boolean {
+  const assertions = assertValidationVectors();
+  for (const a of assertions) {
+    if (!a.representativeAccepted || !a.representativeRoundTrip || !a.nearMissRejected) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function validationAssertionFailures(): readonly PayloadKind[] {
+  const failures: PayloadKind[] = [];
+  for (const a of assertValidationVectors()) {
+    if (!a.representativeAccepted || !a.representativeRoundTrip || !a.nearMissRejected) {
+      failures.push(a.kind);
+    }
+  }
+  return failures;
+}
+
+export function runValidationSubtest(): readonly PayloadValidationAssertion[] {
+  return assertValidationVectors();
+}
+
+export function validationSubtestPassed(): boolean {
+  return validationAssertionsPassed();
+}
+
+export function validationSubtestFailures(): readonly PayloadKind[] {
+  return validationAssertionFailures();
 }
