@@ -88,6 +88,11 @@ export interface CheckReport {
   readonly sourceFileCount: number;
   readonly assignedFileCount: number;
   readonly unassignedFiles: readonly string[];
+  /** Sources outside the component model that a declared boundary accounts for. */
+  readonly declaredExcludedFiles: readonly string[];
+  /** Sources neither assigned nor excluded. Must be empty: an unaccounted
+   *  source is a hiding place, and this is the number that must never grow. */
+  readonly unaccountedFiles: readonly string[];
   readonly facets: readonly FacetResult[];
   readonly blockingViolationCount: number;
   readonly conforming: boolean;
@@ -141,6 +146,25 @@ export function importsOf(source: string): readonly string[] {
   return [...new Set(specifiers)];
 }
 
+/**
+ * A port's interface name, derived from its canonical name: kebab-case to
+ * PascalCase plus the Port suffix. Every declared port file follows this, and a
+ * port whose interface is named otherwise fails the annotation check, which is
+ * the intended signal rather than a silent pass.
+ */
+export function portInterfaceName(portName: string): string {
+  return `${portName.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join("")}Port`;
+}
+
+/** The single source path an adapter must occupy, derived from its layer's component. */
+export function adapterSourcePath(
+  adapter: Rules["adapters"][number],
+  rules: Rules,
+): string | null {
+  const component = rules.components.find((entry) => entry.layer === adapter.layer);
+  return component === undefined ? null : `${component.location}${adapter.name}.ts`;
+}
+
 function componentOf(file: string, rules: Rules): Rules["components"][number] | undefined {
   let best: Rules["components"][number] | undefined;
   for (const component of rules.components) {
@@ -171,6 +195,13 @@ export function checkArchitecture(root: string, rules: Rules): CheckReport {
     importsByFile.set(file, importsOf(readFileSync(resolve(root, file), "utf8")));
   }
   const unassigned = files.filter((file) => assignment.get(file) === undefined);
+  // Declared exclusions come from the graph's module boundaries, so the set of
+  // sources allowed to sit outside the component model is authority rather
+  // than a hard-coded allowance in this file.
+  const excludedPrefixes = rules.moduleBoundaries.flatMap((boundary) =>
+    boundary.scope.flatMap((text) => text.match(/[A-Za-z0-9_./-]+\//g) ?? []));
+  const declaredExcluded = unassigned.filter((file) => excludedPrefixes.some((prefix) => file.startsWith(prefix)));
+  const unaccounted = unassigned.filter((file) => !excludedPrefixes.some((prefix) => file.startsWith(prefix)));
   const layerOf = new Map(rules.components.map((component) => [component.name, component.layer]));
   void layerOf;
 
@@ -317,6 +348,18 @@ export function checkArchitecture(root: string, rules: Rules): CheckReport {
   add("domainhasnoruntimedependency", "architecture checker: non-relative, non-stdlib specifiers beneath domain components", domainSubjects, domainFindings);
 
   // ------------------------------------------- port/adapter conformance
+  //
+  // Strengthened after a probe showed the earlier form was worthless: it asked
+  // whether ANY file existed beneath the adapters component, so one adapter
+  // satisfied all six, deleting an adapter entirely went undetected, and an
+  // empty file passed. An existing file is not conformance.
+  //
+  // Each declared adapter is now resolved to its own derived path, must import
+  // every port it claims, and must bind a type-annotated export naming that
+  // port's interface. The last of those is what engages the type checker: with
+  // the annotation present, tsc decides structural conformance, and an
+  // incompatible or empty implementation fails typecheck rather than needing
+  // this scanner to understand types it cannot see.
   const portFindings: Finding[] = [];
   const outboundPorts = rules.ports.filter((port) => port.direction === "outbound");
   for (const port of rules.ports) {
@@ -338,15 +381,64 @@ export function checkArchitecture(root: string, rules: Rules): CheckReport {
         `adapter ${adapter.name} implements no declared port`, adapter.iri));
       continue;
     }
-    // A declared adapter with no source anywhere is an unrealised claim.
-    const adapterComponent = rules.components.find((component) => component.layer === adapter.layer);
-    const location = adapterComponent?.location ?? "";
-    if (location !== "" && !files.some((file) => file.startsWith(location))) {
-      portFindings.push(finding("portimplementationconformance", "ADAPTER_NOT_REALISED", location,
-        `adapter ${adapter.name} implements ${adapter.implementsPort.join(", ")} and no source exists beneath ${location}`, adapter.iri));
+    const expected = adapterSourcePath(adapter, rules);
+    if (expected === null) {
+      portFindings.push(finding("portimplementationconformance", "ADAPTER_LAYER_HAS_NO_COMPONENT", adapter.name,
+        `adapter ${adapter.name} is declared in layer ${adapter.layer}, which has no component to hold it`, adapter.iri));
+      continue;
+    }
+    if (!existsSync(resolve(root, expected))) {
+      portFindings.push(finding("portimplementationconformance", "ADAPTER_NOT_REALISED", expected,
+        `adapter ${adapter.name} implements ${adapter.implementsPort.join(", ")} and ${expected} does not exist`, adapter.iri));
+      continue;
+    }
+    // Ownership: the source must be assigned to a component in the adapter's
+    // declared layer, so an implementation cannot sit in the wrong place.
+    const owning = assignment.get(expected) ?? componentOf(expected, rules);
+    if (owning === undefined || owning.layer !== adapter.layer) {
+      portFindings.push(finding("portimplementationconformance", "ADAPTER_WRONG_COMPONENT", expected,
+        `adapter ${adapter.name} must be owned by a component in layer ${adapter.layer}; ${expected} is owned by ${owning?.name ?? "no component"}`, adapter.iri));
+    }
+    const source = readFileSync(resolve(root, expected), "utf8");
+    const specifiers = importsByFile.get(expected) ?? importsOf(source);
+    for (const portName of adapter.implementsPort) {
+      const port = rules.ports.find((entry) => entry.name === portName);
+      if (port === undefined) {
+        portFindings.push(finding("portimplementationconformance", "ADAPTER_PORT_UNKNOWN", expected,
+          `adapter ${adapter.name} claims port ${portName}, which is not declared`, adapter.iri));
+        continue;
+      }
+      // Bypass check: the adapter must reach its port's contract, not
+      // reimplement the shape and hope it matches.
+      const importsPort = specifiers.some((specifier) => {
+        if (!specifier.startsWith(".")) return false;
+        const target = resolveRelative(expected, specifier, root);
+        return target === port.contractLocation;
+      });
+      if (!importsPort) {
+        portFindings.push(finding("portimplementationconformance", "ADAPTER_DOES_NOT_IMPORT_PORT", expected,
+          `adapter ${adapter.name} claims port ${portName} without importing its contract at ${port.contractLocation}, so nothing binds the two`, port.iri));
+      }
+      // Compiler engagement: an annotated binding means tsc decides
+      // conformance. Without it, this scanner would be the only judge and it
+      // cannot read types.
+      const interfaceName = portInterfaceName(port.name);
+      // An EXPORTED annotated binding, not merely any occurrence of the name.
+      // A probe showed that an internal helper's return type satisfied the
+      // looser form, so a file could annotate something it never exported and
+      // still pass while offering the application layer nothing to inject.
+      const annotated = new RegExp(
+        `export\\s+(?:const|let|var|function|class)\\s+[A-Za-z0-9_$]+[^=;{]*:\\s*${interfaceName}\\b`,
+      ).test(source);
+      if (!annotated) {
+        portFindings.push(finding("portimplementationconformance", "ADAPTER_EXPORT_NOT_PORT_TYPED", expected,
+          `adapter ${adapter.name} has no export annotated as ${interfaceName}, so the type checker never decides whether it satisfies ${portName}`, port.iri));
+      }
     }
   }
-  add("portimplementationconformance", "architecture checker: port contract existence and port-to-adapter pairing", rules.ports.length + rules.adapters.length, portFindings);
+  add("portimplementationconformance",
+    "architecture checker: per-adapter source resolution, component ownership, port-contract import and type-annotated binding, with tsc deciding structural conformance",
+    rules.ports.length + rules.adapters.length, portFindings);
 
   // ------------------------------------------------------- imports resolve
   const resolveFindings: Finding[] = [];
@@ -466,6 +558,8 @@ export function checkArchitecture(root: string, rules: Rules): CheckReport {
     sourceFileCount: files.length,
     assignedFileCount: files.length - unassigned.length,
     unassignedFiles: unassigned,
+    declaredExcludedFiles: declaredExcluded,
+    unaccountedFiles: unaccounted,
     facets: results.sort((left, right) => left.facet.localeCompare(right.facet)),
     blockingViolationCount,
     conforming: blockingViolationCount === 0,
@@ -477,6 +571,56 @@ function rulesDigest(root: string): string {
   let hash = 0n;
   for (const byte of Buffer.from(bytes)) hash = (hash * 131n + BigInt(byte)) % (2n ** 64n);
   return `fnvlike:${hash.toString(16).padStart(16, "0")}`;
+}
+
+/**
+ * Structural integrity of the projected rules themselves.
+ *
+ * The graph is authority and the USF-side drift check is what compares this
+ * file against it. That check needs both repositories. This one needs only the
+ * product, and it exists because the realistic way to weaken enforcement from
+ * inside the product is to edit the projection: drop a facet, drop an adapter,
+ * or point an adapter at a port that is no longer declared. Those are all
+ * detectable here without any access to the graph.
+ *
+ * It cannot detect a coordinated edit that keeps the file internally
+ * consistent. Only the authority comparison can, and that is stated rather
+ * than papered over.
+ */
+export function rulesIntegrity(rules: Rules): readonly string[] {
+  const problems: string[] = [];
+  const expectedFacets = 15;
+  if (rules.facets.length !== expectedFacets) {
+    problems.push(`RULES_FACET_COUNT: expected ${expectedFacets} architecture facets, found ${rules.facets.length}`);
+  }
+  for (const facet of rules.facets) {
+    if (!facet.iri.startsWith("urn:anqr:delivery-facet:")) problems.push(`RULES_FACET_IRI_INVALID: ${facet.name}`);
+    if (facet.verificationClass.length === 0) problems.push(`RULES_FACET_CLASS_MISSING: ${facet.name}`);
+    if (facet.severity.length === 0) problems.push(`RULES_FACET_SEVERITY_MISSING: ${facet.name}`);
+  }
+  const layers = new Set(rules.layers.map((layer) => layer.name));
+  for (const component of rules.components) {
+    if (!layers.has(component.layer)) problems.push(`RULES_COMPONENT_LAYER_UNKNOWN: ${component.name} -> ${component.layer}`);
+    if (!component.location.endsWith("/")) problems.push(`RULES_COMPONENT_LOCATION_INVALID: ${component.name}`);
+  }
+  const portNames = new Set(rules.ports.map((port) => port.name));
+  for (const adapter of rules.adapters) {
+    if (adapter.implementsPort.length === 0) problems.push(`RULES_ADAPTER_NO_PORT: ${adapter.name}`);
+    for (const port of adapter.implementsPort) {
+      if (!portNames.has(port)) problems.push(`RULES_ADAPTER_PORT_UNKNOWN: ${adapter.name} -> ${port}`);
+    }
+    if (!layers.has(adapter.layer)) problems.push(`RULES_ADAPTER_LAYER_UNKNOWN: ${adapter.name} -> ${adapter.layer}`);
+  }
+  for (const port of rules.ports.filter((entry) => entry.direction === "outbound")) {
+    if (!rules.adapters.some((adapter) => adapter.implementsPort.includes(port.name))) {
+      problems.push(`RULES_OUTBOUND_PORT_UNSERVED: ${port.name}`);
+    }
+  }
+  for (const rule of rules.dependencyRules) {
+    if (!layers.has(rule.from) || !layers.has(rule.to)) problems.push(`RULES_DEPENDENCY_LAYER_UNKNOWN: ${rule.kind} ${rule.from} -> ${rule.to}`);
+  }
+  if (rules.moduleBoundaries.length === 0) problems.push("RULES_NO_MODULE_BOUNDARY: every source would be unaccounted");
+  return problems;
 }
 
 export function loadRules(root: string): Rules {
@@ -495,13 +639,28 @@ export function repositoryRoot(): string {
 
 if (import.meta.filename === process.argv[1] || process.argv[1]?.endsWith("check.ts")) {
   const root = repositoryRoot();
-  const report = checkArchitecture(root, loadRules(root));
+  const rules = loadRules(root);
+  const integrity = rulesIntegrity(rules);
+  if (integrity.length > 0) {
+    // The rules are the product's copy of authority. If they are incoherent,
+    // every verdict below would be computed from a weakened rule set, so this
+    // refuses before checking anything rather than reporting a green result
+    // derived from a mutilated projection.
+    for (const problem of integrity) process.stderr.write(`${problem}\n`);
+    process.stderr.write("architecture rules failed their integrity check; regenerate them from the semantic graph\n");
+    process.exitCode = 1;
+  }
+  const report = checkArchitecture(root, rules);
   const summary = report.facets.map((facet) => {
     const mark = facet.verdict === "satisfied" ? "pass" : facet.verdict === "violated" ? "FAIL" : "n/a ";
     return `  ${mark}  ${facet.facet.replace("architecture", "").padEnd(28)} ${facet.verificationClass.padEnd(34)} ${facet.findings.length} finding(s)`;
   }).join("\n");
   process.stdout.write(`ANQR architecture check\n${summary}\n\n`);
-  process.stdout.write(`  sources ${report.sourceFileCount}, assigned ${report.assignedFileCount}, unassigned ${report.unassignedFiles.length}\n`);
+  process.stdout.write(`  sources ${report.sourceFileCount}, assigned ${report.assignedFileCount}, declared-excluded ${report.declaredExcludedFiles.length}, unaccounted ${report.unaccountedFiles.length}\n`);
+  if (report.unaccountedFiles.length > 0) {
+    for (const file of report.unaccountedFiles) process.stderr.write(`UNACCOUNTED_SOURCE ${file}: belongs to no component and no declared boundary\n`);
+    process.exitCode = 1;
+  }
   process.stdout.write(`  blocking violations ${report.blockingViolationCount}, conforming ${report.conforming}\n`);
   if (process.argv.includes("--json")) process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   if (!report.conforming) {

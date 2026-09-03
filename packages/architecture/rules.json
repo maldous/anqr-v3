@@ -129,7 +129,9 @@
       "name": "image-source",
       "direction": "outbound",
       "contractLocation": "packages/artefact/src/ports/image-source.ts",
-      "servedBy": [],
+      "servedBy": [
+        "png-image-source"
+      ],
       "iri": "urn:anqr:architectural-port:image-source"
     },
     {
@@ -175,6 +177,14 @@
         "raster-surface"
       ],
       "iri": "urn:anqr:architectural-adapter:png-container"
+    },
+    {
+      "name": "png-image-source",
+      "layer": "adapters",
+      "implementsPort": [
+        "image-source"
+      ],
+      "iri": "urn:anqr:architectural-adapter:png-image-source"
     },
     {
       "name": "svg-container",
@@ -369,6 +379,17 @@
     }
   ],
   "moduleBoundaries": [
+    {
+      "name": "assurance-and-test-tooling",
+      "scope": [
+        "packages/architecture/ and packages/artefact/tests/ in the ANQR product repository."
+      ],
+      "forbids": [
+        "No module of a declared architectural component may import from packages/architecture/ or from any test location. Assurance code observes the architecture and must never become something the architecture depends on."
+      ],
+      "reason": "Enforcement machinery and tests are owned code that belongs to no layer of the product. Naming them as an excluded scope means every source is attributable: assigned to a component, or covered by a declared exclusion. Without it the honest count of unaccounted sources cannot be asserted to be zero, and an unaccounted source is a hiding place.",
+      "iri": "urn:anqr:module-boundary:assurance-and-test-tooling"
+    },
     {
       "name": "released-capability-convention",
       "scope": [
