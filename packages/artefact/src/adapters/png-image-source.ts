@@ -1,11 +1,11 @@
-import { inflateSync } from "node:zlib";
 import type { DecodeImageResult, ImageSourcePort, ImageSourceRefusalReason } from "../ports/image-source.ts";
 
 // PNG decoding: the honest half of image-source.
 //
 // PNG only, and that is a real capability boundary rather than laziness. Its
-// filters are reversible and its compression is zlib from the standard library,
-// so a decode is exact. A lossy format would need a discrete cosine transform
+// filters are reversible and its compression is zlib through the web-standard
+// DecompressionStream, so a decode is exact and runs in a browser as well as
+// under Node without a dependency. A lossy format would need a discrete cosine transform
 // implementation, so it is refused with UNSUPPORTED_FORMAT rather than
 // approximated. Refusing is the behaviour the port's result type already models.
 //
@@ -66,6 +66,27 @@ function unfilter(raw: Uint8Array, width: number, height: number, bytesPerPixel:
   return out;
 }
 
+async function inflate(input: Uint8Array): Promise<Uint8Array> {
+  const stream = new DecompressionStream("deflate");
+  const writer = stream.writable.getWriter();
+  // Copied into a plain ArrayBuffer view: a Uint8Array over a SharedArrayBuffer
+  // is not a BufferSource, and the type checker is right to say so.
+  void writer.write(new Uint8Array(input));
+  void writer.close();
+  const chunks: Uint8Array[] = [];
+  const reader = stream.readable.getReader();
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value !== undefined) { const part = new Uint8Array(value); chunks.push(part); total += part.length; }
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const part of chunks) { out.set(part, offset); offset += part.length; }
+  return out;
+}
+
 export const pngImageSource: ImageSourcePort = {
   async decode(bytes: Uint8Array, declaredMediaType: string): Promise<DecodeImageResult> {
     if (declaredMediaType !== "image/png") {
@@ -116,7 +137,7 @@ export const pngImageSource: ImageSourcePort = {
       const joined = new Uint8Array(dataParts.reduce((sum, part) => sum + part.length, 0));
       let cursor = 0;
       for (const part of dataParts) { joined.set(part, cursor); cursor += part.length; }
-      raw = new Uint8Array(inflateSync(joined));
+      raw = await inflate(joined);
     } catch {
       return refuse("MALFORMED", "the compressed image data could not be inflated");
     }

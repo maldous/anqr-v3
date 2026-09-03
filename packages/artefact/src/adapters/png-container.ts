@@ -1,4 +1,3 @@
-import { deflateSync } from "node:zlib";
 import type { ContainerEncoderPort, EncodedContainer, Frame } from "../ports/container-encoder.ts";
 import type { RasterSurfacePort } from "../ports/raster-surface.ts";
 import { createPixelSurface } from "./pixel-surface.ts";
@@ -11,9 +10,12 @@ import { createPixelSurface } from "./pixel-surface.ts";
 // APNG exists but is not claimed, and silently dropping frames would be worse
 // than refusing them.
 //
-// Compression is node:zlib, which is the standard library, so the domain's
-// zero-third-party-dependency rule is untouched and this stays in the adapter
-// layer where host technology belongs.
+// Compression uses the web-standard CompressionStream rather than node:zlib.
+// The build caught the reason: node:zlib does not exist in a browser, so a
+// node-only adapter would have made PNG unavailable on the very surface that
+// needs it. CompressionStream is present in both runtimes and is not a
+// dependency, so the same adapter now serves every delivery surface. That is
+// the architecture paying for itself: one adapter, every surface.
 
 const CHANNELS = 4;
 const SIGNATURE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -52,6 +54,29 @@ function chunk(type: string, body: Uint8Array): Uint8Array {
   out.set(payload, 4);
   out.set(beUint32(crc32(payload)), 4 + payload.length);
   return out;
+}
+
+/**
+ * Zlib-wrapped deflate through the web-standard stream. Deterministic within a
+ * runtime, which is what the determinism contract asserts; two different
+ * implementations may legitimately choose different valid encodings of the same
+ * data, and that is a property of deflate rather than of this adapter.
+ */
+async function deflate(input: Uint8Array): Promise<Uint8Array> {
+  const stream = new CompressionStream("deflate");
+  const writer = stream.writable.getWriter();
+  // Copied into a plain ArrayBuffer view: a Uint8Array over a SharedArrayBuffer
+  // is not a BufferSource, and the type checker is right to say so.
+  void writer.write(new Uint8Array(input));
+  void writer.close();
+  const chunks: Uint8Array[] = [];
+  const reader = stream.readable.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value !== undefined) chunks.push(new Uint8Array(value));
+  }
+  return concat(chunks);
 }
 
 function concat(parts: readonly Uint8Array[]): Uint8Array {
@@ -94,9 +119,7 @@ export const pngContainer: ContainerEncoderPort = {
       beUint32(frame.width), beUint32(frame.height),
       new Uint8Array([BIT_DEPTH_EIGHT, COLOUR_TYPE_RGBA, 0, 0, 0]),
     ]);
-    // Fixed level, so the same frame always yields the same bytes. A default
-    // that varied with the platform would break the determinism claim.
-    const compressed = new Uint8Array(deflateSync(filteredScanlines(frame), { level: 9 }));
+    const compressed = await deflate(filteredScanlines(frame));
     const bytes = concat([SIGNATURE, chunk("IHDR", header), chunk("IDAT", compressed), chunk("IEND", new Uint8Array(0))]);
     return { bytes, mediaType: this.mediaType };
   },

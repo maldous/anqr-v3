@@ -1,0 +1,991 @@
+{
+  "authority": {
+    "experienceProfile": "urn:anqr:experience-profile-revision:1",
+    "designProfile": "urn:anqr:design-profile-revision:1",
+    "implementationPack": "urn:anqr:ui-implementation-pack:preact:1",
+    "patternCatalogue": "urn:usf:future-use-pattern-catalogue:1",
+    "productProfileRevision": "urn:anqr:profile-revision:2",
+    "manifest": "graph/manifests/anqr-experience.json"
+  },
+  "selectedPatterns": [
+    "action-result-feedback",
+    "export-download",
+    "input-and-preview",
+    "progressive-disclosure",
+    "validation-feedback"
+  ],
+  "designCharacter": "A precise instrument. Calm, dense, technical-professional: the artefact and its verdict are the loudest things present and the chrome recedes, because someone is about to trust this with a payment payload.",
+  "contrastRequirement": 4.5,
+  "build": {
+    "command": "npm run build",
+    "output": "apps/web/dist/"
+  },
+  "joinValidatorLocation": "packages/artefact/src/model/artefact-specification.ts",
+  "patterns": [
+    {
+      "iri": "urn:usf:future-use-pattern:action-result-feedback:1",
+      "name": "action-result-feedback",
+      "version": "1",
+      "purpose": "Make the outcome of a discrete action unambiguous, including when it fails, and say what to do next.",
+      "anatomy": [
+        "A statement of the outcome.",
+        "An indication that the action is in progress.",
+        "For a failure, the reason and a way to proceed."
+      ],
+      "requiresState": [
+        "acted",
+        "acting",
+        "failed",
+        "ready"
+      ],
+      "keyboard": [
+        "The outcome is reachable by keyboard from the action that produced it."
+      ],
+      "focus": [
+        "Focus is not thrown to an unrelated region when the outcome arrives."
+      ],
+      "assistive": [
+        "The outcome is announced through a live region, with failure announced assertively and success politely."
+      ],
+      "responsive": [
+        "The outcome remains associated with its action when the layout reflows."
+      ],
+      "prohibited": [
+        "Do not leave an action in progress with no terminal outcome.",
+        "Do not report a failure without a reason.",
+        "Do not use the same presentation for success and failure."
+      ]
+    },
+    {
+      "iri": "urn:usf:future-use-pattern:export-download:1",
+      "name": "export-download",
+      "version": "1",
+      "purpose": "Hand someone a produced artefact in a form they chose, and make clear what they received.",
+      "anatomy": [
+        "A choice of form, where more than one is genuinely available.",
+        "A statement of what was delivered.",
+        "An action that produces and delivers the artefact."
+      ],
+      "requiresState": [
+        "acted",
+        "acting",
+        "failed",
+        "ready"
+      ],
+      "keyboard": [
+        "The action is reachable and operable by keyboard, and its accessible name says what will be produced rather than only naming the verb."
+      ],
+      "focus": [
+        "Focus remains on the action after it completes, so a second export is possible without hunting for the control."
+      ],
+      "assistive": [
+        "Completion and failure are both announced; a delivery that only changes a visual state is silent to anyone not watching."
+      ],
+      "responsive": [
+        "The action remains reachable without horizontal scrolling at every supported width."
+      ],
+      "prohibited": [
+        "Do not offer a form the producer cannot actually deliver.",
+        "Do not report success before the artefact exists.",
+        "Do not silently substitute a different form from the one chosen."
+      ]
+    },
+    {
+      "iri": "urn:usf:future-use-pattern:input-and-preview:1",
+      "name": "input-and-preview",
+      "version": "1",
+      "purpose": "Let someone describe what they want and see the consequence continuously, so the result is understood before it is committed to.",
+      "anatomy": [
+        "A place to describe the desired thing.",
+        "A rendering of the current consequence of that description.",
+        "A statement of whether the current consequence is usable."
+      ],
+      "requiresState": [
+        "empty",
+        "failed",
+        "input-invalid",
+        "ready",
+        "working"
+      ],
+      "keyboard": [
+        "Every control is reachable and operable by keyboard alone, in the order the visual layout implies."
+      ],
+      "focus": [
+        "Focus stays where the actor put it while the preview updates; a preview refresh must never steal or reset focus."
+      ],
+      "assistive": [
+        "The preview is announced as a live region so a change is noticed without sight, and it carries a text alternative describing what it depicts and whether it is usable."
+      ],
+      "responsive": [
+        "The description and the preview remain simultaneously usable when they stack on a narrow viewport, and the current description survives the reflow."
+      ],
+      "prohibited": [
+        "Do not clear the description when the consequence fails; the actor loses the work that caused the failure.",
+        "Do not present a stale preview as current while a new one is being computed.",
+        "Do not require a submit step to see the consequence; that turns a preview into a result."
+      ]
+    },
+    {
+      "iri": "urn:usf:future-use-pattern:progressive-disclosure:1",
+      "name": "progressive-disclosure",
+      "version": "1",
+      "purpose": "Keep a secondary set of choices available without letting it compete with the primary intent.",
+      "anatomy": [
+        "A disclosure control whose current state is evident.",
+        "A primary path that works with no secondary choice made.",
+        "The secondary choices, once disclosed."
+      ],
+      "requiresState": [
+        "empty",
+        "ready"
+      ],
+      "keyboard": [
+        "The disclosure control is operable by keyboard and its expanded state is conveyed, not merely drawn."
+      ],
+      "focus": [
+        "Disclosing moves focus into the disclosed region only when the actor asked for it; collapsing returns focus to the control."
+      ],
+      "assistive": [
+        "The relationship between the control and the region it governs is programmatic, and the expanded state is exposed."
+      ],
+      "responsive": [
+        "On a narrow viewport the secondary choices may collapse by default, and the primary path must remain complete without them."
+      ],
+      "prohibited": [
+        "Do not disclose by removing the control that governs the disclosure.",
+        "Do not hide anything required to complete the primary intent."
+      ]
+    },
+    {
+      "iri": "urn:usf:future-use-pattern:validation-feedback:1",
+      "name": "validation-feedback",
+      "version": "1",
+      "purpose": "Tell someone precisely why what they supplied cannot be used, next to what they supplied, while it can still be corrected.",
+      "anatomy": [
+        "An association between the reason and the input it concerns.",
+        "The specific reason, in the actor's terms rather than the system's."
+      ],
+      "requiresState": [
+        "input-invalid",
+        "ready"
+      ],
+      "keyboard": [
+        "The reason is reachable from the input by keyboard without leaving the field."
+      ],
+      "focus": [
+        "Focus is not moved away from the input when it becomes invalid; the actor is mid-correction."
+      ],
+      "assistive": [
+        "The input is marked invalid programmatically and the reason is associated with it, so it is announced when the input is reached rather than only visible."
+      ],
+      "responsive": [
+        "The reason stays adjacent to its input at every viewport width and is never truncated to fit."
+      ],
+      "prohibited": [
+        "Do not report invalidity only on submit when it was knowable earlier.",
+        "Do not state that something is invalid without stating why.",
+        "Do not use colour as the only signal of invalidity."
+      ]
+    }
+  ],
+  "journeys": [
+    {
+      "iri": "urn:anqr:product-journey:create-and-export-artefact",
+      "name": "create-and-export-artefact",
+      "actor": "anonymous-creator",
+      "purpose": "The product's central outcome. Everything else ANQR offers is either a variation on producing an artefact or an inspection of one.",
+      "entryPoint": "The creation surface, reached with no account and no prior state.",
+      "success": "The actor holds a file that decodes to exactly what they stated.",
+      "failure": "The actor is told which of their choices made the artefact unusable, keeps everything they entered, and can change that one choice.",
+      "requiresAnonymity": true,
+      "steps": [
+        {
+          "iri": "urn:anqr:journey-step:describe-payload",
+          "name": "describe-payload",
+          "order": 1,
+          "objective": "State what the code should carry.",
+          "capabilities": [
+            "anonymousgeneration",
+            "custompayloaddefinition"
+          ],
+          "foundationCapabilities": [],
+          "pattern": "input-and-preview"
+        },
+        {
+          "iri": "urn:anqr:journey-step:adjust-encoding",
+          "name": "adjust-encoding",
+          "order": 2,
+          "objective": "Change how it is encoded, without having to.",
+          "capabilities": [
+            "encodingcontrolsurface"
+          ],
+          "foundationCapabilities": [],
+          "pattern": "progressive-disclosure"
+        },
+        {
+          "iri": "urn:anqr:journey-step:review-artefact",
+          "name": "review-artefact",
+          "order": 3,
+          "objective": "See the real artefact and whether it will scan.",
+          "capabilities": [
+            "outputrendering",
+            "qrartefactcreation",
+            "roundtripcorrectness",
+            "scansafetyvalidation"
+          ],
+          "foundationCapabilities": [],
+          "pattern": "input-and-preview"
+        },
+        {
+          "iri": "urn:anqr:journey-step:export-artefact",
+          "name": "export-artefact",
+          "order": 4,
+          "objective": "Take it away in a chosen form.",
+          "capabilities": [
+            "artefactexport",
+            "deterministicoutput",
+            "scansafeoutput"
+          ],
+          "foundationCapabilities": [],
+          "pattern": "export-download"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "iri": "urn:anqr:experience-action:dismiss-failure",
+      "name": "dismiss-failure",
+      "capability": "scansafetyvalidation",
+      "outcomes": [
+        "dismissed"
+      ],
+      "evidence": "The state returned to, with the actor's input intact."
+    },
+    {
+      "iri": "urn:anqr:experience-action:export-artefact",
+      "name": "export-artefact",
+      "capability": "artefactexport",
+      "outcomes": [
+        "delivered",
+        "refused-container",
+        "refused-unsafe"
+      ],
+      "evidence": "The produced container bytes and their media type."
+    },
+    {
+      "iri": "urn:anqr:experience-action:set-error-correction",
+      "name": "set-error-correction",
+      "capability": "encodingcontrolsurface",
+      "outcomes": [
+        "accepted",
+        "refused-inadmissible-join"
+      ],
+      "evidence": "The admissible join result for the changed specification."
+    },
+    {
+      "iri": "urn:anqr:experience-action:set-foreground-colour",
+      "name": "set-foreground-colour",
+      "capability": "encodingcontrolsurface",
+      "outcomes": [
+        "accepted",
+        "refused-inadmissible-join"
+      ],
+      "evidence": "The admissible join result, which is where a colour pair below the contrast floor is refused."
+    },
+    {
+      "iri": "urn:anqr:experience-action:set-output-format",
+      "name": "set-output-format",
+      "capability": "encodingcontrolsurface",
+      "outcomes": [
+        "accepted",
+        "refused-inadmissible-join"
+      ],
+      "evidence": "The admissible join result for the changed specification."
+    },
+    {
+      "iri": "urn:anqr:experience-action:set-payload",
+      "name": "set-payload",
+      "capability": "custompayloaddefinition",
+      "outcomes": [
+        "accepted",
+        "refused-empty",
+        "refused-too-large"
+      ],
+      "evidence": "The validated specification the producer received."
+    },
+    {
+      "iri": "urn:anqr:experience-action:set-symbol-version",
+      "name": "set-symbol-version",
+      "capability": "encodingcontrolsurface",
+      "outcomes": [
+        "accepted",
+        "refused-inadmissible-join"
+      ],
+      "evidence": "The admissible join result, which is where a forced version too small for the payload is refused."
+    },
+    {
+      "iri": "urn:anqr:experience-action:toggle-encoding-options",
+      "name": "toggle-encoding-options",
+      "capability": "encodingcontrolsurface",
+      "outcomes": [
+        "collapsed",
+        "disclosed"
+      ],
+      "evidence": "The disclosure state conveyed to assistive technology."
+    }
+  ],
+  "states": [
+    {
+      "iri": "urn:anqr:experience-state:empty",
+      "name": "empty",
+      "interactionState": "empty",
+      "entryCondition": "No payload has been entered.",
+      "permits": [
+        "set-payload",
+        "toggle-encoding-options"
+      ],
+      "withholds": [
+        "export-artefact"
+      ],
+      "feedback": "What to enter, not an error. Nothing has gone wrong yet.",
+      "accessibleMeaning": "The surface names its purpose and the input is the first stop in the focus order.",
+      "recoveryRoute": "Enter a payload."
+    },
+    {
+      "iri": "urn:anqr:experience-state:exported",
+      "name": "exported",
+      "interactionState": "acted",
+      "entryCondition": "The container was produced and handed over.",
+      "permits": [
+        "export-artefact",
+        "set-error-correction",
+        "set-foreground-colour",
+        "set-output-format",
+        "set-payload",
+        "set-symbol-version"
+      ],
+      "withholds": [],
+      "feedback": "What was delivered, in what form and how large.",
+      "accessibleMeaning": "Announced politely through a live region, with focus left on the export action.",
+      "recoveryRoute": "Not applicable; export may simply be repeated."
+    },
+    {
+      "iri": "urn:anqr:experience-state:exporting",
+      "name": "exporting",
+      "interactionState": "acting",
+      "entryCondition": "An export is in flight.",
+      "permits": [
+        "set-payload"
+      ],
+      "withholds": [
+        "export-artefact"
+      ],
+      "feedback": "That the export is in progress.",
+      "accessibleMeaning": "The export action is busy and retains focus.",
+      "recoveryRoute": "Wait for the outcome."
+    },
+    {
+      "iri": "urn:anqr:experience-state:failed",
+      "name": "failed",
+      "interactionState": "failed",
+      "entryCondition": "Production or export was refused.",
+      "permits": [
+        "dismiss-failure",
+        "set-error-correction",
+        "set-foreground-colour",
+        "set-output-format",
+        "set-payload",
+        "set-symbol-version"
+      ],
+      "withholds": [
+        "export-artefact"
+      ],
+      "feedback": "The reason, which choice caused it, and what to change.",
+      "accessibleMeaning": "Announced assertively, because a failure the actor does not notice is a failure twice.",
+      "recoveryRoute": "Change the named choice, or dismiss and continue."
+    },
+    {
+      "iri": "urn:anqr:experience-state:generating",
+      "name": "generating",
+      "interactionState": "working",
+      "entryCondition": "A valid specification is being produced.",
+      "permits": [
+        "set-error-correction",
+        "set-foreground-colour",
+        "set-output-format",
+        "set-payload",
+        "set-symbol-version",
+        "toggle-encoding-options"
+      ],
+      "withholds": [
+        "export-artefact"
+      ],
+      "feedback": "That work is in progress, without discarding the previous preview.",
+      "accessibleMeaning": "The preview region is busy, and focus is not moved.",
+      "recoveryRoute": "Wait, or change the input again."
+    },
+    {
+      "iri": "urn:anqr:experience-state:input-invalid",
+      "name": "input-invalid",
+      "interactionState": "input-invalid",
+      "entryCondition": "The payload or the option combination cannot be used.",
+      "permits": [
+        "set-error-correction",
+        "set-foreground-colour",
+        "set-output-format",
+        "set-payload",
+        "set-symbol-version",
+        "toggle-encoding-options"
+      ],
+      "withholds": [
+        "export-artefact"
+      ],
+      "feedback": "The specific reason, beside the input that caused it, with the input preserved.",
+      "accessibleMeaning": "The input is marked invalid and the reason is associated with it, so it is announced on arrival.",
+      "recoveryRoute": "Correct the payload or the option that was named."
+    },
+    {
+      "iri": "urn:anqr:experience-state:ready",
+      "name": "ready",
+      "interactionState": "ready",
+      "entryCondition": "An artefact exists and decodes to the requested payload.",
+      "permits": [
+        "export-artefact",
+        "set-error-correction",
+        "set-foreground-colour",
+        "set-output-format",
+        "set-payload",
+        "set-symbol-version",
+        "toggle-encoding-options"
+      ],
+      "withholds": [],
+      "feedback": "The artefact, its structure, and an explicit scan-safety verdict.",
+      "accessibleMeaning": "The preview carries a text alternative describing what it depicts and that it is usable.",
+      "recoveryRoute": "Not applicable; this is the state the journey aims at."
+    }
+  ],
+  "transitions": [
+    {
+      "iri": "urn:anqr:state-transition:empty-to-generating",
+      "name": "empty-to-generating",
+      "from": "empty",
+      "to": "generating",
+      "cause": "a non-empty payload was entered and its join is admissible"
+    },
+    {
+      "iri": "urn:anqr:state-transition:empty-to-input-invalid",
+      "name": "empty-to-input-invalid",
+      "from": "empty",
+      "to": "input-invalid",
+      "cause": "the entered payload or option combination was refused"
+    },
+    {
+      "iri": "urn:anqr:state-transition:exported-to-exporting",
+      "name": "exported-to-exporting",
+      "from": "exported",
+      "to": "exporting",
+      "cause": "the actor invoked export again"
+    },
+    {
+      "iri": "urn:anqr:state-transition:exported-to-generating",
+      "name": "exported-to-generating",
+      "from": "exported",
+      "to": "generating",
+      "cause": "the payload or an encoding option changed"
+    },
+    {
+      "iri": "urn:anqr:state-transition:exporting-to-exported",
+      "name": "exporting-to-exported",
+      "from": "exporting",
+      "to": "exported",
+      "cause": "the container was produced and handed over"
+    },
+    {
+      "iri": "urn:anqr:state-transition:exporting-to-failed",
+      "name": "exporting-to-failed",
+      "from": "exporting",
+      "to": "failed",
+      "cause": "the container refused the artefact"
+    },
+    {
+      "iri": "urn:anqr:state-transition:failed-to-generating",
+      "name": "failed-to-generating",
+      "from": "failed",
+      "to": "generating",
+      "cause": "the named choice was changed"
+    },
+    {
+      "iri": "urn:anqr:state-transition:failed-to-input-invalid",
+      "name": "failed-to-input-invalid",
+      "from": "failed",
+      "to": "input-invalid",
+      "cause": "the payload changed to one that is refused"
+    },
+    {
+      "iri": "urn:anqr:state-transition:failed-to-ready",
+      "name": "failed-to-ready",
+      "from": "failed",
+      "to": "ready",
+      "cause": "the failure was dismissed and a valid artefact is still held"
+    },
+    {
+      "iri": "urn:anqr:state-transition:generating-to-failed",
+      "name": "generating-to-failed",
+      "from": "generating",
+      "to": "failed",
+      "cause": "production was refused"
+    },
+    {
+      "iri": "urn:anqr:state-transition:generating-to-input-invalid",
+      "name": "generating-to-input-invalid",
+      "from": "generating",
+      "to": "input-invalid",
+      "cause": "the payload changed to one that is refused"
+    },
+    {
+      "iri": "urn:anqr:state-transition:generating-to-ready",
+      "name": "generating-to-ready",
+      "from": "generating",
+      "to": "ready",
+      "cause": "production returned an artefact whose decode equals the requested payload"
+    },
+    {
+      "iri": "urn:anqr:state-transition:input-invalid-to-generating",
+      "name": "input-invalid-to-generating",
+      "from": "input-invalid",
+      "to": "generating",
+      "cause": "the payload or option was corrected and the join is now admissible"
+    },
+    {
+      "iri": "urn:anqr:state-transition:ready-to-exporting",
+      "name": "ready-to-exporting",
+      "from": "ready",
+      "to": "exporting",
+      "cause": "the actor invoked export"
+    },
+    {
+      "iri": "urn:anqr:state-transition:ready-to-generating",
+      "name": "ready-to-generating",
+      "from": "ready",
+      "to": "generating",
+      "cause": "the payload or an encoding option changed"
+    },
+    {
+      "iri": "urn:anqr:state-transition:ready-to-input-invalid",
+      "name": "ready-to-input-invalid",
+      "from": "ready",
+      "to": "input-invalid",
+      "cause": "the payload or option changed to one that is refused"
+    }
+  ],
+  "roles": [
+    {
+      "iri": "urn:anqr:design-role:content-heading",
+      "name": "content-heading",
+      "governs": "The name of a region, establishing the document outline."
+    },
+    {
+      "iri": "urn:anqr:design-role:export-action",
+      "name": "export-action",
+      "governs": "The action that produces and hands over a container."
+    },
+    {
+      "iri": "urn:anqr:design-role:input-label",
+      "name": "input-label",
+      "governs": "The name of an input, programmatically associated with it."
+    },
+    {
+      "iri": "urn:anqr:design-role:input-surface",
+      "name": "input-surface",
+      "governs": "Where the actor states what the code should carry."
+    },
+    {
+      "iri": "urn:anqr:design-role:option-control",
+      "name": "option-control",
+      "governs": "A secondary choice governing encoding or output."
+    },
+    {
+      "iri": "urn:anqr:design-role:preview-surface",
+      "name": "preview-surface",
+      "governs": "Where the current artefact is shown, with a text alternative."
+    },
+    {
+      "iri": "urn:anqr:design-role:primary-action",
+      "name": "primary-action",
+      "governs": "The action carrying the journey's intent."
+    },
+    {
+      "iri": "urn:anqr:design-role:secondary-action",
+      "name": "secondary-action",
+      "governs": "An action that is available but not the point."
+    },
+    {
+      "iri": "urn:anqr:design-role:status-message",
+      "name": "status-message",
+      "governs": "The outcome of a discrete action, announced not merely drawn."
+    },
+    {
+      "iri": "urn:anqr:design-role:supporting-text",
+      "name": "supporting-text",
+      "governs": "Text that explains a control without being an error."
+    },
+    {
+      "iri": "urn:anqr:design-role:validation-message",
+      "name": "validation-message",
+      "governs": "Why the current input or combination cannot be used."
+    }
+  ],
+  "bindings": [
+    {
+      "iri": "urn:anqr:implementation-binding:action-dismiss-failure",
+      "name": "action-dismiss-failure",
+      "element": "urn:anqr:experience-action:dismiss-failure",
+      "unit": "CreationSurface",
+      "location": "apps/web/src/surfaces/creation-surface.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:action-export-artefact",
+      "name": "action-export-artefact",
+      "element": "urn:anqr:experience-action:export-artefact",
+      "unit": "ExportAction",
+      "location": "apps/web/src/components/export-action.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:action-set-error-correction",
+      "name": "action-set-error-correction",
+      "element": "urn:anqr:experience-action:set-error-correction",
+      "unit": "EncodingOptions",
+      "location": "apps/web/src/components/encoding-options.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:action-set-foreground-colour",
+      "name": "action-set-foreground-colour",
+      "element": "urn:anqr:experience-action:set-foreground-colour",
+      "unit": "EncodingOptions",
+      "location": "apps/web/src/components/encoding-options.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:action-set-output-format",
+      "name": "action-set-output-format",
+      "element": "urn:anqr:experience-action:set-output-format",
+      "unit": "EncodingOptions",
+      "location": "apps/web/src/components/encoding-options.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:action-set-payload",
+      "name": "action-set-payload",
+      "element": "urn:anqr:experience-action:set-payload",
+      "unit": "PayloadField",
+      "location": "apps/web/src/components/payload-field.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:action-set-symbol-version",
+      "name": "action-set-symbol-version",
+      "element": "urn:anqr:experience-action:set-symbol-version",
+      "unit": "EncodingOptions",
+      "location": "apps/web/src/components/encoding-options.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:action-toggle-encoding-options",
+      "name": "action-toggle-encoding-options",
+      "element": "urn:anqr:experience-action:toggle-encoding-options",
+      "unit": "EncodingOptions",
+      "location": "apps/web/src/components/encoding-options.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:journey-create-and-export-artefact",
+      "name": "journey-create-and-export-artefact",
+      "element": "urn:anqr:product-journey:create-and-export-artefact",
+      "unit": "CreationSurface",
+      "location": "apps/web/src/surfaces/creation-surface.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:role-content-heading",
+      "name": "role-content-heading",
+      "element": "urn:anqr:design-role:content-heading",
+      "unit": "SectionHeading",
+      "location": "apps/web/src/components/section-heading.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:role-export-action",
+      "name": "role-export-action",
+      "element": "urn:anqr:design-role:export-action",
+      "unit": "ExportAction",
+      "location": "apps/web/src/components/export-action.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:role-input-label",
+      "name": "role-input-label",
+      "element": "urn:anqr:design-role:input-label",
+      "unit": "PayloadField",
+      "location": "apps/web/src/components/payload-field.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:role-input-surface",
+      "name": "role-input-surface",
+      "element": "urn:anqr:design-role:input-surface",
+      "unit": "PayloadField",
+      "location": "apps/web/src/components/payload-field.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:role-option-control",
+      "name": "role-option-control",
+      "element": "urn:anqr:design-role:option-control",
+      "unit": "EncodingOptions",
+      "location": "apps/web/src/components/encoding-options.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:role-preview-surface",
+      "name": "role-preview-surface",
+      "element": "urn:anqr:design-role:preview-surface",
+      "unit": "ArtefactPreview",
+      "location": "apps/web/src/components/artefact-preview.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:role-primary-action",
+      "name": "role-primary-action",
+      "element": "urn:anqr:design-role:primary-action",
+      "unit": "ExportAction",
+      "location": "apps/web/src/components/export-action.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:role-secondary-action",
+      "name": "role-secondary-action",
+      "element": "urn:anqr:design-role:secondary-action",
+      "unit": "EncodingOptions",
+      "location": "apps/web/src/components/encoding-options.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:role-status-message",
+      "name": "role-status-message",
+      "element": "urn:anqr:design-role:status-message",
+      "unit": "StatusMessage",
+      "location": "apps/web/src/components/status-message.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:role-supporting-text",
+      "name": "role-supporting-text",
+      "element": "urn:anqr:design-role:supporting-text",
+      "unit": "SupportingText",
+      "location": "apps/web/src/components/supporting-text.ts"
+    },
+    {
+      "iri": "urn:anqr:implementation-binding:role-validation-message",
+      "name": "role-validation-message",
+      "element": "urn:anqr:design-role:validation-message",
+      "unit": "ValidationMessage",
+      "location": "apps/web/src/components/validation-message.ts"
+    }
+  ],
+  "parameters": [
+    {
+      "iri": "urn:anqr:artefact-parameter:payload",
+      "name": "payload",
+      "family": "encoding",
+      "servesCapability": "qrartefactcreation",
+      "domainKind": "string",
+      "admissibleValues": [],
+      "minimum": null,
+      "maximum": null
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter:errorCorrectionLevel",
+      "name": "errorCorrectionLevel",
+      "family": "encoding",
+      "servesCapability": "encodingcontrolsurface",
+      "domainKind": "enumeration",
+      "admissibleValues": [
+        "H",
+        "L",
+        "M",
+        "Q"
+      ],
+      "minimum": null,
+      "maximum": null
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter:symbolVersion",
+      "name": "symbolVersion",
+      "family": "encoding",
+      "servesCapability": "encodingcontrolsurface",
+      "domainKind": "integer-range",
+      "admissibleValues": [],
+      "minimum": "1",
+      "maximum": "40"
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter:maskPattern",
+      "name": "maskPattern",
+      "family": "encoding",
+      "servesCapability": "encodingcontrolsurface",
+      "domainKind": "enumeration",
+      "admissibleValues": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "auto"
+      ],
+      "minimum": null,
+      "maximum": null
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter:outputFormat",
+      "name": "outputFormat",
+      "family": "output",
+      "servesCapability": "artefactexport",
+      "domainKind": "enumeration",
+      "admissibleValues": [
+        "gif",
+        "png",
+        "svg"
+      ],
+      "minimum": null,
+      "maximum": null
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter:moduleSizePx",
+      "name": "moduleSizePx",
+      "family": "presentation",
+      "servesCapability": "outputrendering",
+      "domainKind": "integer-range",
+      "admissibleValues": [],
+      "minimum": "1",
+      "maximum": "64"
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter:quietZoneModules",
+      "name": "quietZoneModules",
+      "family": "structure",
+      "servesCapability": "scansafeoutput",
+      "domainKind": "integer-range",
+      "admissibleValues": [],
+      "minimum": "0",
+      "maximum": "16"
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter:foregroundColour",
+      "name": "foregroundColour",
+      "family": "colour",
+      "servesCapability": "visualcustomisation",
+      "domainKind": "colour",
+      "admissibleValues": [],
+      "minimum": null,
+      "maximum": null
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter:backgroundColour",
+      "name": "backgroundColour",
+      "family": "colour",
+      "servesCapability": "visualcustomisation",
+      "domainKind": "colour",
+      "admissibleValues": [],
+      "minimum": null,
+      "maximum": null
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter:minimumContrastRatio",
+      "name": "minimumContrastRatio",
+      "family": "safety",
+      "servesCapability": "scansafeoutput",
+      "domainKind": "integer-range",
+      "admissibleValues": [],
+      "minimum": "1",
+      "maximum": "21"
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter:decodeVerification",
+      "name": "decodeVerification",
+      "family": "safety",
+      "servesCapability": "roundtripcorrectness",
+      "domainKind": "enumeration",
+      "admissibleValues": [
+        "required",
+        "sampled",
+        "skipped"
+      ],
+      "minimum": null,
+      "maximum": null
+    }
+  ],
+  "joinRules": [
+    {
+      "iri": "urn:anqr:artefact-parameter-join-rule:25-constrains-errorCorrectionLevel-symbolVersion",
+      "name": "constrains-errorCorrectionLevel-symbolVersion",
+      "kind": "constrains",
+      "antecedent": "errorCorrectionLevel",
+      "antecedentValue": null,
+      "consequent": "symbolVersion",
+      "reason": "Raising the error-correction level reduces the data capacity of every version, so it narrows which forced versions remain admissible for the same payload. The two choices cannot be validated independently."
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter-join-rule:18-constrains-foregroundColour-minimumContrastRatio",
+      "name": "constrains-foregroundColour-minimumContrastRatio",
+      "kind": "constrains",
+      "antecedent": "foregroundColour",
+      "antecedentValue": null,
+      "consequent": "minimumContrastRatio",
+      "reason": "The chosen colours are exactly what the contrast floor judges."
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter-join-rule:24-constrains-payload-symbolVersion",
+      "name": "constrains-payload-symbolVersion",
+      "kind": "constrains",
+      "antecedent": "payload",
+      "antecedentValue": null,
+      "consequent": "symbolVersion",
+      "reason": "A forced symbol version must have capacity for the payload at the chosen error-correction level. A version too small is inadmissible, not silently upgraded: upgrading would hand back an artefact of a different size from the one requested, which is a different artefact."
+    },
+    {
+      "iri": "urn:anqr:artefact-parameter-join-rule:21-defaults-with-symbolVersion-moduleSizePx",
+      "name": "defaults-with-symbolVersion-moduleSizePx",
+      "kind": "defaults-with",
+      "antecedent": "symbolVersion",
+      "antecedentValue": null,
+      "consequent": "moduleSizePx",
+      "reason": "A larger symbol at a fixed output size yields smaller modules, so the default module size follows from the version."
+    }
+  ],
+  "neutrality": [
+    {
+      "iri": "urn:usf:pattern-neutrality-rule:1",
+      "invariant": "No text of a Future Use Pattern may name a product, a user-interface framework, a markup or styling language, a repository path, or a file format the pattern does not itself concern. A pattern that names its first consumer is not reusable by a second.",
+      "forbiddenSubstrings": [
+        ".ts",
+        "anqr",
+        "apps/",
+        "className",
+        "classname",
+        "css",
+        "document.",
+        "gif",
+        "innerHTML",
+        "jsx",
+        "node_modules",
+        "packages/",
+        "png",
+        "preact",
+        "qr artefact",
+        "qr code",
+        "querySelector",
+        "react",
+        "redux",
+        "src/",
+        "stylesheet",
+        "svelte",
+        "svg",
+        "tailwind",
+        "tsx",
+        "useEffect",
+        "useState",
+        "vue"
+      ],
+      "reason": "Reuse has to be a checkable property. A catalogue whose patterns quietly assume one product's nouns, one framework's components or one repository's layout is a catalogue with exactly one possible consumer, and nothing about its shape would reveal that."
+    }
+  ]
+}

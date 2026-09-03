@@ -58,6 +58,23 @@ export interface Rules {
   }[];
 }
 
+export interface Experience {
+  readonly authority: Readonly<Record<string, string>>;
+  readonly selectedPatterns: readonly string[];
+  readonly contrastRequirement: number;
+  readonly build: { readonly command: string; readonly output: string };
+  readonly joinValidatorLocation: string;
+  readonly patterns: readonly { readonly name: string; readonly purpose: string; readonly anatomy: readonly string[]; readonly keyboard: readonly string[]; readonly focus: readonly string[]; readonly assistive: readonly string[]; readonly responsive: readonly string[]; readonly prohibited: readonly string[]; readonly requiresState: readonly string[] }[];
+  readonly journeys: readonly { readonly name: string; readonly steps: readonly { readonly name: string; readonly pattern: string; readonly capabilities: readonly string[] }[] }[];
+  readonly actions: readonly { readonly name: string; readonly capability: string }[];
+  readonly states: readonly { readonly name: string; readonly permits: readonly string[]; readonly withholds: readonly string[] }[];
+  readonly transitions: readonly { readonly from: string; readonly to: string }[];
+  readonly roles: readonly { readonly name: string }[];
+  readonly bindings: readonly { readonly name: string; readonly element: string; readonly unit: string; readonly location: string }[];
+  readonly joinRules: readonly { readonly name: string; readonly kind: string; readonly antecedent: string; readonly consequent: string }[];
+  readonly neutrality: readonly { readonly invariant: string; readonly forbiddenSubstrings: readonly string[] }[];
+}
+
 export interface Finding {
   readonly facet: string;
   readonly facetIri: string;
@@ -98,7 +115,10 @@ export interface CheckReport {
   readonly conforming: boolean;
 }
 
-const SOURCE_EXTENSION = ".ts";
+// .mjs is enumerated because a build script's imports are real: esbuild was
+// declared and imported only from a .mjs file, so a .ts-only walk reported it
+// as an unused dependency. An unenumerated file extension is a blind spot.
+const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mjs"] as const;
 const SKIP_DIRECTORIES = new Set(["node_modules", ".git", "dist", "coverage", ".usf"]);
 
 /** Recursive enumeration of every source file, so nothing is out of view. */
@@ -111,7 +131,7 @@ export function enumerateSources(root: string): readonly string[] {
       if (entry.isDirectory()) {
         if (SKIP_DIRECTORIES.has(entry.name)) continue;
         walk(join(directory, entry.name));
-      } else if (entry.name.endsWith(SOURCE_EXTENSION)) {
+      } else if (SOURCE_EXTENSIONS.some((extension) => entry.name.endsWith(extension))) {
         found.push(relative(root, join(directory, entry.name)).split(sep).join("/"));
       }
     }
@@ -165,6 +185,23 @@ export function adapterSourcePath(
   return component === undefined ? null : `${component.location}${adapter.name}.ts`;
 }
 
+/**
+ * Matches a rendered semantic identity in either attribute syntax: markup
+ * `name="value"` or the object-literal `"name": "value"` a hyperscript call
+ * uses. Restricting this to one syntax is how an entire scan silently stops
+ * matching after a refactor.
+ */
+export function renderedIdentityPattern(attribute: string): RegExp {
+  return new RegExp(`["']?${attribute}["']?\\s*[:=]\\s*["']([a-z-]+)["']`, "g");
+}
+
+export function identityRendered(source: string, attribute: string, identity: string): boolean {
+  for (const match of source.matchAll(renderedIdentityPattern(attribute))) {
+    if (match[1] === identity) return true;
+  }
+  return false;
+}
+
 function componentOf(file: string, rules: Rules): Rules["components"][number] | undefined {
   let best: Rules["components"][number] | undefined;
   for (const component of rules.components) {
@@ -186,7 +223,7 @@ const facetByName = (rules: Rules, name: string): Rules["facets"][number] => {
 };
 
 /** Evaluate every architecture facet the rules declare against the source tree. */
-export function checkArchitecture(root: string, rules: Rules): CheckReport {
+export function checkArchitecture(root: string, rules: Rules, experience?: Experience): CheckReport {
   const files = enumerateSources(root);
   const assignment = new Map<string, Rules["components"][number] | undefined>();
   const importsByFile = new Map<string, readonly string[]>();
@@ -524,18 +561,123 @@ export function checkArchitecture(root: string, rules: Rules): CheckReport {
     }
   }
 
+  // ------------------------------------------- experience traceability
+  //
+  // Both directions, because a chain that only resolves one way is not
+  // traceability. From a rendered identity to authority: every data-design-role
+  // and data-experience-action in the delivery layer must name something
+  // declared. From authority to a rendered element: every declared action and
+  // role must have a binding whose location exists and which actually carries
+  // that identity.
+  const traceFindings: Finding[] = [];
+  let traceSubjects = 0;
+  if (experience !== undefined) {
+    const roleNames = new Set(experience.roles.map((entry) => entry.name));
+    const actionNames = new Set(experience.actions.map((entry) => entry.name));
+    const journeyNames = new Set(experience.journeys.map((entry) => entry.name));
+    const patternNames = new Set(experience.patterns.map((entry) => entry.name));
+
+    for (const problem of experienceIntegrity(experience)) {
+      traceFindings.push(finding("experiencetraceability", "EXPERIENCE_PROJECTION_INVALID", "packages/architecture/experience.json", problem));
+    }
+    for (const problem of patternContamination(experience)) {
+      traceFindings.push(finding("experiencetraceability", "PATTERN_CONTAMINATED", "packages/architecture/experience.json", problem));
+    }
+
+    // authority -> rendered
+    for (const binding of experience.bindings) {
+      traceSubjects += 1;
+      const local = binding.element.split(":").pop() as string;
+      const kind = binding.element.includes("design-role") ? "role"
+        : binding.element.includes("experience-action") ? "action"
+        : binding.element.includes("product-journey") ? "journey" : "unknown";
+      const known = kind === "role" ? roleNames.has(local)
+        : kind === "action" ? actionNames.has(local)
+        : kind === "journey" ? journeyNames.has(local) : false;
+      if (!known) {
+        traceFindings.push(finding("experiencetraceability", "BINDING_ELEMENT_UNKNOWN", binding.location,
+          `binding ${binding.name} names ${binding.element}, which the experience profile does not declare`));
+        continue;
+      }
+      if (!existsSync(resolve(root, binding.location))) {
+        traceFindings.push(finding("experiencetraceability", "BINDING_LOCATION_ABSENT", binding.location,
+          `binding ${binding.name} declares ${binding.location}, which does not exist`));
+        continue;
+      }
+      const source = readFileSync(resolve(root, binding.location), "utf8");
+      const attribute = kind === "role" ? "data-design-role" : kind === "action" ? "data-experience-action" : "data-journey";
+      // Both attribute syntaxes: markup form name="value" and the object form
+      // "name": "value" that a hyperscript call uses. Matching only the first
+      // made every rendered identity invisible the moment the components moved
+      // from JSX to h(), which would have hidden unknown identities entirely.
+      if (kind !== "journey" && !identityRendered(source, attribute, local)) {
+        traceFindings.push(finding("experiencetraceability", "BINDING_IDENTITY_NOT_RENDERED", binding.location,
+          `binding ${binding.name} claims ${binding.location} realises ${local}, and that source renders no ${attribute}="${local}"`));
+      }
+    }
+    for (const action of experience.actions) {
+      if (!experience.bindings.some((binding) => binding.element.endsWith(`:${action.name}`))) {
+        traceFindings.push(finding("experiencetraceability", "ACTION_WITHOUT_IMPLEMENTATION", "packages/architecture/experience.json",
+          `declared action ${action.name} has no implementation binding`));
+      }
+    }
+    for (const journey of experience.journeys) {
+      for (const step of journey.steps) {
+        traceSubjects += 1;
+        if (!patternNames.has(step.pattern)) {
+          traceFindings.push(finding("experiencetraceability", "JOURNEY_PATTERN_UNKNOWN", "packages/architecture/experience.json",
+            `step ${step.name} selects pattern ${step.pattern}, which the catalogue does not declare`));
+        }
+      }
+    }
+
+    // rendered -> authority
+    const deliveryComponents = rules.components.filter((component) => component.layer === "delivery");
+    for (const file of files) {
+      if (!deliveryComponents.some((component) => file.startsWith(component.location))) continue;
+      const source = readFileSync(resolve(root, file), "utf8");
+      traceSubjects += 1;
+      for (const match of source.matchAll(renderedIdentityPattern("data-design-role"))) {
+        if (!roleNames.has(match[1] as string)) {
+          traceFindings.push(finding("experiencetraceability", "RENDERED_ROLE_UNKNOWN", file,
+            `renders data-design-role="${match[1]}", which the design profile does not declare`));
+        }
+      }
+      for (const match of source.matchAll(renderedIdentityPattern("data-experience-action"))) {
+        if (!actionNames.has(match[1] as string)) {
+          traceFindings.push(finding("experiencetraceability", "RENDERED_ACTION_UNBOUND", file,
+            `renders data-experience-action="${match[1]}", which the experience profile does not declare`));
+        }
+      }
+    }
+
+    // The join validator must exist where the pack says it does, or the
+    // admissible join is a claim with no implementation behind it.
+    if (!existsSync(resolve(root, experience.joinValidatorLocation))) {
+      traceFindings.push(finding("experiencetraceability", "JOIN_VALIDATOR_ABSENT", experience.joinValidatorLocation,
+        "the implementation pack declares an admissible-join validator at this location and it does not exist"));
+    }
+  }
+  if (experience === undefined) {
+    add("experiencetraceability", "none", 0, [], "the experience projection was not supplied to this run");
+  } else {
+    add("experiencetraceability",
+      "architecture checker: bindings resolved in both directions, rendered identities matched against authority, pattern selection and projection integrity",
+      traceSubjects, traceFindings);
+  }
+
   // --------------------------------- facets this checker does not decide
   const delegated: Readonly<Record<string, string>> = {
     statictypecorrectness: "tsc --noEmit under the repository's declared strict configuration; a separate mechanism because a type checker is the only thing that can decide it",
     artefactroundtrip: "node --test over the codec round-trip matrix; a runtime behaviour rather than a source property",
     deterministicartefact: "node --test over repeated production of one specification",
+    buildcorrectness: "npm run build, which bundles the declared entry point from declared dependencies and fails on any unresolved production import",
+    accessibilityconformance: "node --test over the rendered surface in a document implementation, asserting labels, keyboard operation, focus, accessible names, state communication and disabled semantics",
+    parameterjoinadmissibility: "node --test over the admissible-join validator, including prohibited combinations that must be refused before any capability invocation",
   };
   const notCheckable: Readonly<Record<string, string>> = {
-    buildcorrectness: "No delivery surface is realised, so there is no declared build command to run. The facet stays unsatisfied rather than vacuously satisfied.",
-    localeparity: "No locale resource exists in the product repository yet, so there is no key set to compare against a reference. The 86-locale denominator is declared in the graph and unrealised here.",
-    accessibilityconformance: "No rendered surface exists, so there is nothing to evaluate for accessible name, role, state, focus order or keyboard operability.",
-    parameterjoinadmissibility: "The 23 declared conditional-joining rules have no implemented validator, so no specification can be admitted or refused yet.",
-    surfaceparity: "One delivery surface is realised. A parity obligation over a single surface is trivially true and would prove nothing.",
+    localeparity: "No locale resource exists in the product repository. The eighty-six-locale denominator is declared in the graph and unrealised here, and a string table created to satisfy the count would prove nothing.",
+    surfaceparity: "One delivery surface is realised. A parity obligation over a single surface is trivially true, and a second cosmetic surface would be worse than an undecidable verdict.",
   };
   for (const [name, mechanism] of Object.entries(delegated)) {
     add(name, mechanism, 1, [], undefined);
@@ -589,7 +731,7 @@ function rulesDigest(root: string): string {
  */
 export function rulesIntegrity(rules: Rules): readonly string[] {
   const problems: string[] = [];
-  const expectedFacets = 15;
+  const expectedFacets = 16;
   if (rules.facets.length !== expectedFacets) {
     problems.push(`RULES_FACET_COUNT: expected ${expectedFacets} architecture facets, found ${rules.facets.length}`);
   }
@@ -623,6 +765,69 @@ export function rulesIntegrity(rules: Rules): readonly string[] {
   return problems;
 }
 
+export function loadExperience(root: string): Experience {
+  return JSON.parse(readFileSync(resolve(root, "packages/architecture/experience.json"), "utf8")) as Experience;
+}
+
+/**
+ * Structural integrity of the experience projection, for the same reason the
+ * rules have one: the realistic way to weaken this from inside the product is
+ * to edit the projection rather than the graph.
+ */
+export function experienceIntegrity(experience: Experience): readonly string[] {
+  const problems: string[] = [];
+  if (experience.patterns.length === 0) problems.push("EXPERIENCE_NO_PATTERNS");
+  if (experience.journeys.length === 0) problems.push("EXPERIENCE_NO_JOURNEY");
+  if (experience.states.length === 0) problems.push("EXPERIENCE_NO_STATES");
+  if (experience.bindings.length === 0) problems.push("EXPERIENCE_NO_BINDINGS");
+  const patternNames = new Set(experience.patterns.map((entry) => entry.name));
+  for (const selected of experience.selectedPatterns) {
+    if (!patternNames.has(selected)) problems.push(`EXPERIENCE_SELECTED_PATTERN_UNKNOWN: ${selected}`);
+  }
+  const stateNames = new Set(experience.states.map((entry) => entry.name));
+  const actionNames = new Set(experience.actions.map((entry) => entry.name));
+  for (const state of experience.states) {
+    for (const action of [...state.permits, ...state.withholds]) {
+      if (!actionNames.has(action)) problems.push(`EXPERIENCE_STATE_ACTION_UNKNOWN: ${state.name} -> ${action}`);
+    }
+  }
+  for (const transition of experience.transitions) {
+    if (!stateNames.has(transition.from) || !stateNames.has(transition.to)) {
+      problems.push(`EXPERIENCE_TRANSITION_STATE_UNKNOWN: ${transition.from} -> ${transition.to}`);
+    }
+  }
+  if (!Number.isFinite(experience.contrastRequirement) || experience.contrastRequirement < 1) {
+    problems.push("EXPERIENCE_CONTRAST_REQUIREMENT_INVALID");
+  }
+  return problems;
+}
+
+/**
+ * Contamination check for the reusable patterns.
+ *
+ * A pattern that names its first consumer, a framework, a markup language, a
+ * repository path or a format it does not concern has exactly one possible
+ * consumer, and nothing about its shape would reveal that. The forbidden set
+ * comes from the graph's neutrality rule, not from this file.
+ */
+export function patternContamination(experience: Experience): readonly string[] {
+  const problems: string[] = [];
+  const rule = experience.neutrality[0];
+  if (rule === undefined) return ["PATTERN_NEUTRALITY_RULE_ABSENT"];
+  for (const pattern of experience.patterns) {
+    const text = [
+      pattern.purpose, ...pattern.anatomy, ...pattern.keyboard, ...pattern.focus,
+      ...pattern.assistive, ...pattern.responsive, ...pattern.prohibited,
+    ].join(" ").toLowerCase();
+    for (const forbidden of rule.forbiddenSubstrings) {
+      if (text.includes(forbidden.toLowerCase())) {
+        problems.push(`PATTERN_CONTAMINATED: ${pattern.name} contains "${forbidden}"`);
+      }
+    }
+  }
+  return problems;
+}
+
 export function loadRules(root: string): Rules {
   return JSON.parse(readFileSync(resolve(root, "packages/architecture/rules.json"), "utf8")) as Rules;
 }
@@ -640,7 +845,7 @@ export function repositoryRoot(): string {
 if (import.meta.filename === process.argv[1] || process.argv[1]?.endsWith("check.ts")) {
   const root = repositoryRoot();
   const rules = loadRules(root);
-  const integrity = rulesIntegrity(rules);
+  const integrity = [...rulesIntegrity(rules), ...experienceIntegrity(loadExperience(root)), ...patternContamination(loadExperience(root))];
   if (integrity.length > 0) {
     // The rules are the product's copy of authority. If they are incoherent,
     // every verdict below would be computed from a weakened rule set, so this
@@ -650,7 +855,7 @@ if (import.meta.filename === process.argv[1] || process.argv[1]?.endsWith("check
     process.stderr.write("architecture rules failed their integrity check; regenerate them from the semantic graph\n");
     process.exitCode = 1;
   }
-  const report = checkArchitecture(root, rules);
+  const report = checkArchitecture(root, rules, loadExperience(root));
   const summary = report.facets.map((facet) => {
     const mark = facet.verdict === "satisfied" ? "pass" : facet.verdict === "violated" ? "FAIL" : "n/a ";
     return `  ${mark}  ${facet.facet.replace("architecture", "").padEnd(28)} ${facet.verificationClass.padEnd(34)} ${facet.findings.length} finding(s)`;

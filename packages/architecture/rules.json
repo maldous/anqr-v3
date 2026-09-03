@@ -44,21 +44,21 @@
       "name": "artefact-application",
       "layer": "application",
       "location": "packages/artefact/src/application/",
-      "status": "declared-not-realised",
+      "status": "realised",
       "iri": "urn:anqr:architectural-component:artefact-application"
     },
     {
       "name": "artefact-model",
       "layer": "domain",
       "location": "packages/artefact/src/model/",
-      "status": "declared-not-realised",
+      "status": "realised",
       "iri": "urn:anqr:architectural-component:artefact-model"
     },
     {
       "name": "artefact-ports",
       "layer": "ports",
       "location": "packages/artefact/src/ports/",
-      "status": "declared-not-realised",
+      "status": "realised",
       "iri": "urn:anqr:architectural-component:artefact-ports"
     },
     {
@@ -93,14 +93,14 @@
       "name": "render-adapters",
       "layer": "adapters",
       "location": "packages/artefact/src/adapters/",
-      "status": "declared-not-realised",
+      "status": "realised",
       "iri": "urn:anqr:architectural-component:render-adapters"
     },
     {
       "name": "web-delivery",
       "layer": "delivery",
       "location": "apps/web/src/",
-      "status": "declared-not-realised",
+      "status": "realised",
       "iri": "urn:anqr:architectural-component:web-delivery"
     }
   ],
@@ -284,6 +284,13 @@
     {
       "kind": "permits",
       "from": "delivery",
+      "to": "adapters",
+      "reason": "The outermost layer is the composition root: it is the one place that may name concrete adapters, because something has to inject them. The application layer still may not, which is what keeps the centre replaceable. Stated explicitly rather than left to a permissive default, so the edge is a decision rather than an omission.",
+      "iri": "urn:anqr:dependency-rule:permits-delivery-adapters"
+    },
+    {
+      "kind": "permits",
+      "from": "delivery",
       "to": "application",
       "reason": "A surface invokes use cases.",
       "iri": "urn:anqr:dependency-rule:permits-delivery-application"
@@ -391,6 +398,17 @@
       "iri": "urn:anqr:module-boundary:assurance-and-test-tooling"
     },
     {
+      "name": "delivery-build-and-test-tooling",
+      "scope": [
+        "apps/web/tools/ and apps/web/tests/ in the ANQR product repository."
+      ],
+      "forbids": [
+        "No module of a declared architectural component may import from a build tool or a test location. The build produces the surface; it is not part of it."
+      ],
+      "reason": "The build script imports a bundler, which is a real production-adjacent import that source enumeration must see. Enumerating it makes the script an accounted source, and this boundary is what accounts for it: build tooling is owned code belonging to no layer of the product.",
+      "iri": "urn:anqr:module-boundary:delivery-build-and-test-tooling"
+    },
+    {
       "name": "released-capability-convention",
       "scope": [
         "src/capabilities/ and tests/conformance/ in the ANQR product repository."
@@ -469,6 +487,16 @@
       "statement": "The domain layer imports nothing outside the language standard library, so it is reusable unchanged on every delivery surface.",
       "expected": "Zero third-party runtime imports beneath the domain components.",
       "verificationClass": "dependency-declaration-integrity",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architectureexperiencetraceability",
+      "iri": "urn:anqr:delivery-facet:architectureexperiencetraceability",
+      "statement": "Every rendered element carrying a semantic identity resolves to a declared design role, experience action or journey; every declared action and role has an implementation binding whose location exists; every journey step selects a pattern the catalogue declares; and the state machine the implementation enforces equals the declared states, permitted actions and transitions.",
+      "expected": "No rendered identity is unknown, no declared action or role is unimplemented, no journey selects an undeclared pattern, and the implemented state machine matches authority exactly.",
+      "verificationClass": "interface-conformance",
       "severity": "blocking",
       "stage": "validation",
       "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
