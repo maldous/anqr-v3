@@ -1,0 +1,536 @@
+{
+  "authority": {
+    "architecture": "urn:anqr:architecture:1",
+    "foundationRevision": "urn:usf:foundation-revision:v3:1",
+    "profileRevision": "urn:anqr:profile-revision:2",
+    "manifest": "graph/products/anqr/semantic-build-manifest.json"
+  },
+  "layers": [
+    {
+      "name": "domain",
+      "ordinal": 0,
+      "iri": "urn:anqr:architectural-layer:domain"
+    },
+    {
+      "name": "ports",
+      "ordinal": 1,
+      "iri": "urn:anqr:architectural-layer:ports"
+    },
+    {
+      "name": "application",
+      "ordinal": 2,
+      "iri": "urn:anqr:architectural-layer:application"
+    },
+    {
+      "name": "adapters",
+      "ordinal": 3,
+      "iri": "urn:anqr:architectural-layer:adapters"
+    },
+    {
+      "name": "delivery",
+      "ordinal": 4,
+      "iri": "urn:anqr:architectural-layer:delivery"
+    }
+  ],
+  "components": [
+    {
+      "name": "animation",
+      "layer": "domain",
+      "location": "packages/artefact/src/anim/",
+      "status": "declared-not-realised",
+      "iri": "urn:anqr:architectural-component:animation"
+    },
+    {
+      "name": "artefact-application",
+      "layer": "application",
+      "location": "packages/artefact/src/application/",
+      "status": "declared-not-realised",
+      "iri": "urn:anqr:architectural-component:artefact-application"
+    },
+    {
+      "name": "artefact-model",
+      "layer": "domain",
+      "location": "packages/artefact/src/model/",
+      "status": "declared-not-realised",
+      "iri": "urn:anqr:architectural-component:artefact-model"
+    },
+    {
+      "name": "artefact-ports",
+      "layer": "ports",
+      "location": "packages/artefact/src/ports/",
+      "status": "declared-not-realised",
+      "iri": "urn:anqr:architectural-component:artefact-ports"
+    },
+    {
+      "name": "artwork",
+      "layer": "domain",
+      "location": "packages/artefact/src/art/",
+      "status": "declared-not-realised",
+      "iri": "urn:anqr:architectural-component:artwork"
+    },
+    {
+      "name": "http-api-delivery",
+      "layer": "delivery",
+      "location": "apps/api/src/",
+      "status": "declared-not-realised",
+      "iri": "urn:anqr:architectural-component:http-api-delivery"
+    },
+    {
+      "name": "mcp-delivery",
+      "layer": "delivery",
+      "location": "apps/mcp/src/",
+      "status": "declared-not-realised",
+      "iri": "urn:anqr:architectural-component:mcp-delivery"
+    },
+    {
+      "name": "qr-codec",
+      "layer": "domain",
+      "location": "packages/artefact/src/qr/",
+      "status": "realised",
+      "iri": "urn:anqr:architectural-component:qr-codec"
+    },
+    {
+      "name": "render-adapters",
+      "layer": "adapters",
+      "location": "packages/artefact/src/adapters/",
+      "status": "declared-not-realised",
+      "iri": "urn:anqr:architectural-component:render-adapters"
+    },
+    {
+      "name": "web-delivery",
+      "layer": "delivery",
+      "location": "apps/web/src/",
+      "status": "declared-not-realised",
+      "iri": "urn:anqr:architectural-component:web-delivery"
+    }
+  ],
+  "ports": [
+    {
+      "name": "clock",
+      "direction": "outbound",
+      "contractLocation": "packages/artefact/src/ports/clock.ts",
+      "servedBy": [
+        "system-clock"
+      ],
+      "iri": "urn:anqr:architectural-port:clock"
+    },
+    {
+      "name": "container-encoder",
+      "direction": "outbound",
+      "contractLocation": "packages/artefact/src/ports/container-encoder.ts",
+      "servedBy": [
+        "gif-container",
+        "png-container",
+        "svg-container"
+      ],
+      "iri": "urn:anqr:architectural-port:container-encoder"
+    },
+    {
+      "name": "image-source",
+      "direction": "outbound",
+      "contractLocation": "packages/artefact/src/ports/image-source.ts",
+      "servedBy": [],
+      "iri": "urn:anqr:architectural-port:image-source"
+    },
+    {
+      "name": "inspect-artefact",
+      "direction": "inbound",
+      "contractLocation": "packages/artefact/src/ports/inspect-artefact.ts",
+      "servedBy": [],
+      "iri": "urn:anqr:architectural-port:inspect-artefact"
+    },
+    {
+      "name": "produce-artefact",
+      "direction": "inbound",
+      "contractLocation": "packages/artefact/src/ports/produce-artefact.ts",
+      "servedBy": [],
+      "iri": "urn:anqr:architectural-port:produce-artefact"
+    },
+    {
+      "name": "raster-surface",
+      "direction": "outbound",
+      "contractLocation": "packages/artefact/src/ports/raster-surface.ts",
+      "servedBy": [
+        "gif-container",
+        "png-container"
+      ],
+      "iri": "urn:anqr:architectural-port:raster-surface"
+    }
+  ],
+  "adapters": [
+    {
+      "name": "gif-container",
+      "layer": "adapters",
+      "implementsPort": [
+        "container-encoder",
+        "raster-surface"
+      ],
+      "iri": "urn:anqr:architectural-adapter:gif-container"
+    },
+    {
+      "name": "png-container",
+      "layer": "adapters",
+      "implementsPort": [
+        "container-encoder",
+        "raster-surface"
+      ],
+      "iri": "urn:anqr:architectural-adapter:png-container"
+    },
+    {
+      "name": "svg-container",
+      "layer": "adapters",
+      "implementsPort": [
+        "container-encoder"
+      ],
+      "iri": "urn:anqr:architectural-adapter:svg-container"
+    },
+    {
+      "name": "system-clock",
+      "layer": "adapters",
+      "implementsPort": [
+        "clock"
+      ],
+      "iri": "urn:anqr:architectural-adapter:system-clock"
+    }
+  ],
+  "dependencyRules": [
+    {
+      "kind": "forbids",
+      "from": "adapters",
+      "to": "delivery",
+      "reason": "An adapter serves ports and must not reach back into a delivery surface.",
+      "iri": "urn:anqr:dependency-rule:forbids-adapters-delivery"
+    },
+    {
+      "kind": "forbids",
+      "from": "application",
+      "to": "adapters",
+      "reason": "Use cases drive outbound ports; a concrete adapter is injected at composition, never imported.",
+      "iri": "urn:anqr:dependency-rule:forbids-application-adapters"
+    },
+    {
+      "kind": "forbids",
+      "from": "application",
+      "to": "delivery",
+      "reason": "A use case cannot depend on the surface that invoked it.",
+      "iri": "urn:anqr:dependency-rule:forbids-application-delivery"
+    },
+    {
+      "kind": "forbids",
+      "from": "delivery",
+      "to": "domain",
+      "reason": "A delivery surface reaches the domain only through the application layer, so product logic cannot migrate into a screen.",
+      "iri": "urn:anqr:dependency-rule:forbids-delivery-domain"
+    },
+    {
+      "kind": "forbids",
+      "from": "domain",
+      "to": "adapters",
+      "reason": "The centre cannot reach a technology-specific implementation.",
+      "iri": "urn:anqr:dependency-rule:forbids-domain-adapters"
+    },
+    {
+      "kind": "forbids",
+      "from": "domain",
+      "to": "application",
+      "reason": "The centre cannot know about the use cases that orchestrate it.",
+      "iri": "urn:anqr:dependency-rule:forbids-domain-application"
+    },
+    {
+      "kind": "forbids",
+      "from": "domain",
+      "to": "delivery",
+      "reason": "The centre cannot know it is being rendered.",
+      "iri": "urn:anqr:dependency-rule:forbids-domain-delivery"
+    },
+    {
+      "kind": "permits",
+      "from": "adapters",
+      "to": "domain",
+      "reason": "An adapter may reference the domain types it moves.",
+      "iri": "urn:anqr:dependency-rule:permits-adapters-domain"
+    },
+    {
+      "kind": "permits",
+      "from": "adapters",
+      "to": "ports",
+      "reason": "An adapter exists to implement a port.",
+      "iri": "urn:anqr:dependency-rule:permits-adapters-ports"
+    },
+    {
+      "kind": "permits",
+      "from": "application",
+      "to": "domain",
+      "reason": "Use cases compose domain operations.",
+      "iri": "urn:anqr:dependency-rule:permits-application-domain"
+    },
+    {
+      "kind": "permits",
+      "from": "application",
+      "to": "ports",
+      "reason": "Use cases are declared by and drive their ports.",
+      "iri": "urn:anqr:dependency-rule:permits-application-ports"
+    },
+    {
+      "kind": "permits",
+      "from": "delivery",
+      "to": "application",
+      "reason": "A surface invokes use cases.",
+      "iri": "urn:anqr:dependency-rule:permits-delivery-application"
+    },
+    {
+      "kind": "permits",
+      "from": "delivery",
+      "to": "ports",
+      "reason": "A surface may reference inbound port contracts.",
+      "iri": "urn:anqr:dependency-rule:permits-delivery-ports"
+    },
+    {
+      "kind": "permits",
+      "from": "ports",
+      "to": "domain",
+      "reason": "A port may reference the domain types it carries.",
+      "iri": "urn:anqr:dependency-rule:permits-ports-domain"
+    },
+    {
+      "kind": "requires",
+      "from": "adapters",
+      "to": "ports",
+      "reason": "An adapter implementing no declared port has no reason to exist and is a violation.",
+      "iri": "urn:anqr:dependency-rule:requires-adapters-ports"
+    }
+  ],
+  "isolation": [
+    {
+      "layers": [
+        "application",
+        "domain",
+        "ports"
+      ],
+      "technologies": [
+        "canvas",
+        "dom",
+        "node:child_process",
+        "node:fs",
+        "node:http",
+        "preact",
+        "react",
+        "vite"
+      ],
+      "reason": "The centre must be usable unchanged from a browser, a server, a mobile shell and a protocol server. One framework or host import in those layers ends that property silently.",
+      "iri": "urn:anqr:framework-isolation:centre"
+    }
+  ],
+  "cyclePolicy": [
+    {
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository.",
+      "permitted": false,
+      "iri": "urn:anqr:cycle-policy:product"
+    }
+  ],
+  "scopeRules": [
+    {
+      "runtime": "Components in the domain, ports and application layers may depend at runtime only on the language standard library.",
+      "development": "Type checking, testing, boundary analysis and bundling are development-only and may never become runtime imports of those layers.",
+      "iri": "urn:anqr:dependency-scope:centre"
+    }
+  ],
+  "generated": [
+    {
+      "location": "Any path whose name declares it generated, and localised content resources produced by the translation pipeline.",
+      "consumerRule": "Generated code may be imported by the delivery and adapter layers only. No domain, port or application module may depend on it, so regeneration can never change product meaning.",
+      "iri": "urn:anqr:generated-code-boundary:product"
+    }
+  ],
+  "testBoundaries": [
+    {
+      "testClass": "browser",
+      "mayImport": "A built delivery surface as a user reaches it.",
+      "mayNotImport": "Product internals reached other than through the surface.",
+      "iri": "urn:anqr:test-boundary:browser"
+    },
+    {
+      "testClass": "conformance",
+      "mayImport": "Only a component's declared public entry point.",
+      "mayNotImport": "Any internal module of the component under test.",
+      "iri": "urn:anqr:test-boundary:conformance"
+    },
+    {
+      "testClass": "integration",
+      "mayImport": "Real adapters and the application layer.",
+      "mayNotImport": "Delivery-surface internals.",
+      "iri": "urn:anqr:test-boundary:integration"
+    },
+    {
+      "testClass": "unit",
+      "mayImport": "The module under test and its own layer.",
+      "mayNotImport": "Any adapter, any delivery surface, and any network, filesystem or clock.",
+      "iri": "urn:anqr:test-boundary:unit"
+    }
+  ],
+  "moduleBoundaries": [
+    {
+      "name": "released-capability-convention",
+      "scope": [
+        "src/capabilities/ and tests/conformance/ in the ANQR product repository."
+      ],
+      "forbids": [
+        "No module of a declared architectural component may import from src/capabilities/ or tests/conformance/. Those paths are the released one-module-per-capability convention, which predates this architecture and is deliberately outside the hexagonal component model; letting a component depend on them would make the released convention load-bearing for the new topology."
+      ],
+      "reason": "Without this rule the released capability tree is a hiding place: 78 source files belong to no declared component, so a dependency-direction check that only compares assigned components would never see a violation placed among them. Naming the boundary makes the exclusion explicit and checkable instead of silent.",
+      "iri": "urn:anqr:module-boundary:released-capability-convention"
+    }
+  ],
+  "facets": [
+    {
+      "name": "architectureaccessibilityconformance",
+      "iri": "urn:anqr:delivery-facet:architectureaccessibilityconformance",
+      "statement": "Every rendered surface satisfies its declared accessibility obligations, including accessible name, role, state, focus order and keyboard operability.",
+      "expected": "Zero violations of the declared accessibility obligations on any rendered surface.",
+      "verificationClass": "accessibility-conformance",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architectureartefactroundtrip",
+      "iri": "urn:anqr:delivery-facet:architectureartefactroundtrip",
+      "statement": "A produced artefact decodes to exactly the requested payload at every claimed version and error-correction level, and survives damage within the correction budget.",
+      "expected": "Every claimed version and level round-trips, and planted damage inside the budget still decodes to the exact payload.",
+      "verificationClass": "integration-behaviour",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architecturebuildcorrectness",
+      "iri": "urn:anqr:delivery-facet:architecturebuildcorrectness",
+      "statement": "Every realised delivery surface builds from a clean checkout using only declared, locked dependencies.",
+      "expected": "Each declared build command succeeds and names its artefact identities.",
+      "verificationClass": "build-correctness",
+      "severity": "blocking",
+      "stage": "realisation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architecturedeclareddependenciesagree",
+      "iri": "urn:anqr:delivery-facet:architecturedeclareddependenciesagree",
+      "statement": "Everything imported is declared, everything declared is imported, and runtime and development scopes are not confused.",
+      "expected": "No undeclared, unused or mis-scoped dependency.",
+      "verificationClass": "dependency-declaration-integrity",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architecturedependencydirection",
+      "iri": "urn:anqr:delivery-facet:architecturedependencydirection",
+      "statement": "Every forbidden dependency edge between the declared layers is absent from the product source, and every required edge is present.",
+      "expected": "No import in any component resolves to a layer the dependency rules forbid.",
+      "verificationClass": "dependency-boundary",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architecturedeterministicartefact",
+      "iri": "urn:anqr:delivery-facet:architecturedeterministicartefact",
+      "statement": "The same artefact specification produces a byte-identical artefact on repetition.",
+      "expected": "Repeated production of one specification yields an identical digest.",
+      "verificationClass": "reproducible-build",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architecturedomainhasnoruntimedependency",
+      "iri": "urn:anqr:delivery-facet:architecturedomainhasnoruntimedependency",
+      "statement": "The domain layer imports nothing outside the language standard library, so it is reusable unchanged on every delivery surface.",
+      "expected": "Zero third-party runtime imports beneath the domain components.",
+      "verificationClass": "dependency-declaration-integrity",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architectureframeworkisolation",
+      "iri": "urn:anqr:delivery-facet:architectureframeworkisolation",
+      "statement": "No module in the domain, ports or application layers imports a delivery framework, a rasteriser or a host runtime.",
+      "expected": "Zero framework or host imports in the isolated layers.",
+      "verificationClass": "dependency-boundary",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architectureimportsresolve",
+      "iri": "urn:anqr:delivery-facet:architectureimportsresolve",
+      "statement": "Every import in the product source resolves, and no module is unreachable from a declared entry point.",
+      "expected": "Zero unresolved imports and zero undeclared orphan modules.",
+      "verificationClass": "import-resolution",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architecturelocaleparity",
+      "iri": "urn:anqr:delivery-facet:architecturelocaleparity",
+      "statement": "Every claimed locale carries the reference locale's complete interface key set.",
+      "expected": "Zero missing interface keys in any claimed locale.",
+      "verificationClass": "contract-compatibility",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architecturenodependencycycles",
+      "iri": "urn:anqr:delivery-facet:architecturenodependencycycles",
+      "statement": "The product source contains no dependency cycle at module or component scope.",
+      "expected": "Zero cycles reported over every module beneath packages/ and apps/.",
+      "verificationClass": "circular-dependency",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architectureparameterjoinadmissibility",
+      "iri": "urn:anqr:delivery-facet:architectureparameterjoinadmissibility",
+      "statement": "Every declared conditional-joining rule is enforced when an artefact specification is validated, and an inadmissible combination is refused with a stable reason rather than silently corrected.",
+      "expected": "Each declared join rule has a positive and a negative vector, and every inadmissible permutation is refused with its declared reason.",
+      "verificationClass": "unit-behaviour",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architectureportimplementationconformance",
+      "iri": "urn:anqr:delivery-facet:architectureportimplementationconformance",
+      "statement": "Every declared outbound port has at least one adapter structurally implementing it, and every adapter implements a declared port.",
+      "expected": "Every declared port and adapter is paired.",
+      "verificationClass": "interface-conformance",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architecturestatictypecorrectness",
+      "iri": "urn:anqr:delivery-facet:architecturestatictypecorrectness",
+      "statement": "The whole product source type-checks under its declared strict configuration.",
+      "expected": "The type checker reports zero errors.",
+      "verificationClass": "static-type",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    },
+    {
+      "name": "architecturesurfaceparity",
+      "iri": "urn:anqr:delivery-facet:architecturesurfaceparity",
+      "statement": "The same artefact specification produces a byte-identical artefact, the same refusal reasons and the same scan-safety verdict on every realised delivery surface.",
+      "expected": "Identical specifications yield identical artefact digests and verdicts across every realised surface.",
+      "verificationClass": "contract-compatibility",
+      "severity": "blocking",
+      "stage": "validation",
+      "scope": "Every module beneath packages/ and apps/ in the ANQR product repository."
+    }
+  ]
+}

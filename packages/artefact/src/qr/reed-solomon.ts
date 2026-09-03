@@ -16,7 +16,9 @@ import { gfDivide, gfExp, gfMultiply, polyEvaluate, polyMultiply } from "./galoi
 
 /** Generator polynomial (x - 2^0)(x - 2^1)...(x - 2^(degree-1)), descending. */
 export function generatorPolynomial(degree: number): Uint8Array {
-  let poly = new Uint8Array([1]);
+  // Annotated rather than inferred: the initialiser narrows to
+  // Uint8Array<ArrayBuffer> while polyMultiply returns Uint8Array<ArrayBufferLike>.
+  let poly: Uint8Array = new Uint8Array([1]);
   for (let index = 0; index < degree; index += 1) {
     poly = polyMultiply(poly, new Uint8Array([1, gfExp(index)]));
   }
