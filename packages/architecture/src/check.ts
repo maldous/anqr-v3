@@ -844,6 +844,13 @@ export function repositoryRoot(): string {
 
 if (import.meta.filename === process.argv[1] || process.argv[1]?.endsWith("check.ts")) {
   const root = repositoryRoot();
+  // In --json mode stdout carries the report and nothing else, so it can be
+  // piped straight into a parser. The human summary still goes somewhere: it
+  // moves to stderr rather than being dropped.
+  const asJson = process.argv.includes("--json");
+  const report_out = (text: string): void => {
+    (asJson ? process.stderr : process.stdout).write(text);
+  };
   const rules = loadRules(root);
   const integrity = [...rulesIntegrity(rules), ...experienceIntegrity(loadExperience(root)), ...patternContamination(loadExperience(root))];
   if (integrity.length > 0) {
@@ -860,14 +867,14 @@ if (import.meta.filename === process.argv[1] || process.argv[1]?.endsWith("check
     const mark = facet.verdict === "satisfied" ? "pass" : facet.verdict === "violated" ? "FAIL" : "n/a ";
     return `  ${mark}  ${facet.facet.replace("architecture", "").padEnd(28)} ${facet.verificationClass.padEnd(34)} ${facet.findings.length} finding(s)`;
   }).join("\n");
-  process.stdout.write(`ANQR architecture check\n${summary}\n\n`);
-  process.stdout.write(`  sources ${report.sourceFileCount}, assigned ${report.assignedFileCount}, declared-excluded ${report.declaredExcludedFiles.length}, unaccounted ${report.unaccountedFiles.length}\n`);
+  report_out(`ANQR architecture check\n${summary}\n\n`);
+  report_out(`  sources ${report.sourceFileCount}, assigned ${report.assignedFileCount}, declared-excluded ${report.declaredExcludedFiles.length}, unaccounted ${report.unaccountedFiles.length}\n`);
   if (report.unaccountedFiles.length > 0) {
     for (const file of report.unaccountedFiles) process.stderr.write(`UNACCOUNTED_SOURCE ${file}: belongs to no component and no declared boundary\n`);
     process.exitCode = 1;
   }
-  process.stdout.write(`  blocking violations ${report.blockingViolationCount}, conforming ${report.conforming}\n`);
-  if (process.argv.includes("--json")) process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  report_out(`  blocking violations ${report.blockingViolationCount}, conforming ${report.conforming}\n`);
+  if (asJson) process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   if (!report.conforming) {
     for (const facet of report.facets) {
       for (const item of facet.findings) {

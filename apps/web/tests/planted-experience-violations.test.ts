@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import { Window } from "happy-dom";
 import { h, render } from "preact";
@@ -12,6 +13,7 @@ import {
 } from "../../../packages/architecture/src/check.ts";
 import { createExperience, INITIAL_MODEL, type ExperienceModel } from "../src/experience/machine.ts";
 import { createProducer } from "../src/composition.ts";
+import { isolatedTree } from "../../../packages/architecture/tests/isolated-tree.ts";
 
 // Adversarial proof for the first semantic experience.
 //
@@ -156,73 +158,81 @@ test("planted: an undeclared state transition is refused at runtime", async () =
 
 // ------------------------- 1, 5, 11, 12. planted files in the real tree
 
-const planted: string[] = [];
-function plant(path: string, source: string): void {
-  const absolute = resolve(repositoryRoot, path);
-  writeFileSync(absolute, source);
-  planted.push(absolute);
-}
-function unplant(): void {
-  for (const absolute of planted.splice(0)) rmSync(absolute, { force: true });
+/**
+ * Plants into a disposable copy of the tree. Planting into the shared tree made
+ * this file and the port-conformance file interfere, because each runs as its
+ * own process and each asserts the tree is clean before planting.
+ */
+function withPlanted(path: string, source: string, assertions: (facet: (name: string) => ReturnType<typeof facetOf>, root: string) => void): void {
+  const tree = isolatedTree(repositoryRoot);
+  try {
+    writeFileSync(resolve(tree.root, path), source);
+    const facetIn = (name: string) => {
+      const report = checkArchitecture(tree.root, rules, loadExperience(tree.root));
+      const facet = report.facets.find((entry) => entry.facet === `architecture${name}`);
+      assert.ok(facet !== undefined, `facet ${name} absent`);
+      return facet;
+    };
+    assertions(facetIn, tree.root);
+    rmSync(resolve(tree.root, path), { force: true });
+    const after = checkArchitecture(tree.root, rules, loadExperience(tree.root));
+    assert.equal(after.blockingViolationCount, 0, "removing the violation must restore conformance");
+  } finally { tree.dispose(); }
 }
 
 test("planted: Preact imported into the domain layer is rejected", () => {
-  try {
-    assert.deepEqual(facetOf("frameworkisolation").findings, [], "known good");
-    plant("packages/artefact/src/qr/planted-framework.ts",
-      'import { h } from "preact";\nexport const used = h;\n');
-    const findings = facetOf("frameworkisolation").findings;
-    assert.equal(findings.length, 1);
-    assert.equal(findings[0]?.code, "FRAMEWORK_IMPORT_IN_ISOLATED_LAYER");
-    assert.match(findings[0]?.detail ?? "", /domain layer imports "preact"/);
-  } finally { unplant(); }
-  assert.deepEqual(facetOf("frameworkisolation").findings, [], "restored");
+  assert.deepEqual(facetOf("frameworkisolation").findings, [], "known good in the real tree");
+  withPlanted("packages/artefact/src/qr/planted-framework.ts",
+    'import { h } from "preact";\nexport const used = h;\n',
+    (facetIn) => {
+      const findings = facetIn("frameworkisolation").findings;
+      assert.equal(findings.length, 1);
+      assert.equal(findings[0]?.code, "FRAMEWORK_IMPORT_IN_ISOLATED_LAYER");
+      assert.match(findings[0]?.detail ?? "", /domain layer imports "preact"/);
+    });
 });
 
 test("planted: Preact imported into the application layer is rejected", () => {
-  try {
-    plant("packages/artefact/src/application/planted-framework.ts",
-      'import { h } from "preact";\nexport const used = h;\n');
-    const findings = facetOf("frameworkisolation").findings;
-    assert.equal(findings[0]?.code, "FRAMEWORK_IMPORT_IN_ISOLATED_LAYER");
-  } finally { unplant(); }
+  withPlanted("packages/artefact/src/application/planted-framework.ts",
+    'import { h } from "preact";\nexport const used = h;\n',
+    (facetIn) => {
+      assert.equal(facetIn("frameworkisolation").findings[0]?.code, "FRAMEWORK_IMPORT_IN_ISOLATED_LAYER");
+    });
 });
 
 test("planted: the application layer reaching an adapter directly is rejected", () => {
   // Export must go through the container port. An application module naming a
   // concrete container bypasses the port, and only the composition root in the
   // delivery layer may do that.
-  try {
-    assert.deepEqual(facetOf("dependencydirection").findings, [], "known good");
-    plant("packages/artefact/src/application/planted-bypass.ts",
-      'import { svgContainer } from "../adapters/svg-container.ts";\nexport const used = svgContainer;\n');
-    const findings = facetOf("dependencydirection").findings;
-    assert.ok(findings.some((entry) => entry.code === "FORBIDDEN_LAYER_DEPENDENCY"),
-      JSON.stringify(findings.map((entry) => entry.code)));
-    assert.match(findings[0]?.detail ?? "", /application/);
-  } finally { unplant(); }
-  assert.deepEqual(facetOf("dependencydirection").findings, [], "restored");
+  assert.deepEqual(facetOf("dependencydirection").findings, [], "known good in the real tree");
+  withPlanted("packages/artefact/src/application/planted-bypass.ts",
+    'import { svgContainer } from "../adapters/svg-container.ts";\nexport const used = svgContainer;\n',
+    (facetIn) => {
+      const findings = facetIn("dependencydirection").findings;
+      assert.ok(findings.some((entry) => entry.code === "FORBIDDEN_LAYER_DEPENDENCY"),
+        JSON.stringify(findings.map((entry) => entry.code)));
+      assert.match(findings[0]?.detail ?? "", /application/);
+    });
 });
 
 test("planted: a rendered action with no semantic binding is rejected, and discovery sees the new file", () => {
   // Two classes in one: the identity is unknown, and the file carrying it was
   // created since the last run. A checker that enumerated a remembered set
   // would see neither.
-  try {
-    assert.deepEqual(codes(loadExperience(repositoryRoot)), [], "known good");
-    plant("apps/web/src/components/planted-control.ts",
-      'import { h, type VNode } from "preact";\n'
-      + 'export function PlantedControl(): VNode {\n'
-      + '  return h("button", { "data-experience-action": "invent-an-action", "data-design-role": "invented-role" }, "x");\n'
-      + '}\n');
-    const findings = traceability(loadExperience(repositoryRoot)).findings;
-    const found = findings.map((entry) => entry.code).sort();
-    assert.ok(found.includes("RENDERED_ACTION_UNBOUND"), JSON.stringify(found));
-    assert.ok(found.includes("RENDERED_ROLE_UNKNOWN"), JSON.stringify(found));
-    assert.ok(findings.some((entry) => entry.file === "apps/web/src/components/planted-control.ts"),
-      "the newly created file must be the one reported");
-  } finally { unplant(); }
-  assert.deepEqual(codes(loadExperience(repositoryRoot)), [], "restored");
+  assert.deepEqual(codes(loadExperience(repositoryRoot)), [], "known good in the real tree");
+  withPlanted("apps/web/src/components/planted-control.ts",
+    'import { h, type JSX } from "preact";\n'
+    + 'export function PlantedControl(): JSX.Element {\n'
+    + '  return h("button", { "data-experience-action": "invent-an-action", "data-design-role": "invented-role" }, "x");\n'
+    + '}\n',
+    (facetIn) => {
+      const findings = facetIn("experiencetraceability").findings;
+      const found = findings.map((entry) => entry.code).sort();
+      assert.ok(found.includes("RENDERED_ACTION_UNBOUND"), JSON.stringify(found));
+      assert.ok(found.includes("RENDERED_ROLE_UNKNOWN"), JSON.stringify(found));
+      assert.ok(findings.some((entry) => entry.file === "apps/web/src/components/planted-control.ts"),
+        "the newly created file must be the one reported");
+    });
 });
 
 test("planted: a missing join validator is rejected", () => {
@@ -234,18 +244,40 @@ test("planted: a missing join validator is rejected", () => {
 // ------------------------------------------------ 10. broken production build
 
 test("planted: a broken production import fails the declared build", () => {
-  const target = resolve(repositoryRoot, "apps/web/src/composition.ts");
-  const original = readFileSync(target, "utf8");
-  const build = (): { ok: boolean; output: string } => {
-    try {
-      return { ok: true, output: execFileSync("npm", ["run", "build"], { cwd: repositoryRoot, encoding: "utf8" }) };
-    } catch (error) {
-      const failure = error as { stdout?: string; stderr?: string };
-      return { ok: false, output: `${failure.stdout ?? ""}${failure.stderr ?? ""}` };
-    }
-  };
+  // Isolated in a copied tree rather than planted in place. Node runs each test
+  // FILE as its own process, so mutating a shared source while siblings read it
+  // is unsound: doing that made one test fail on a fresh clone and pass on
+  // re-run, which is exactly the kind of order dependence that must not be
+  // left in. The copy is the real sources and the real build script, so the
+  // guarantee under test is unchanged.
+  const root = mkdtempSync(join(tmpdir(), "anqr-build-"));
   try {
-    assert.equal(build().ok, true, "known good: the declared build succeeds");
+    cpSync(resolve(repositoryRoot, "apps/web"), resolve(root, "apps/web"), { recursive: true });
+    cpSync(resolve(repositoryRoot, "packages/artefact"), resolve(root, "packages/artefact"), { recursive: true });
+    symlinkSync(resolve(repositoryRoot, "node_modules"), resolve(root, "node_modules"), "dir");
+    rmSync(resolve(root, "apps/web/dist"), { recursive: true, force: true });
+
+    const build = (): { ok: boolean; output: string } => {
+      try {
+        return {
+          ok: true,
+          output: execFileSync(process.execPath, [resolve(root, "apps/web/tools/build.mjs")], {
+            cwd: root, encoding: "utf8",
+          }),
+        };
+      } catch (error) {
+        const failure = error as { stdout?: string; stderr?: string };
+        return { ok: false, output: `${failure.stdout ?? ""}${failure.stderr ?? ""}` };
+      }
+    };
+
+    const known = build();
+    assert.equal(known.ok, true, `known good: the declared build succeeds\n${known.output}`);
+    assert.ok(existsSync(resolve(root, "apps/web/dist/main.js")), "and produces the declared artefact");
+    assert.match(known.output, /bundle apps\/web\/dist\/main\.js/);
+
+    const target = resolve(root, "apps/web/src/composition.ts");
+    const original = readFileSync(target, "utf8");
     writeFileSync(target, original.replace(
       'import { svgContainer } from "../../../packages/artefact/src/adapters/svg-container.ts";',
       'import { svgContainer } from "../../../packages/artefact/src/adapters/does-not-exist.ts";',
@@ -253,11 +285,12 @@ test("planted: a broken production import fails the declared build", () => {
     const broken = build();
     assert.equal(broken.ok, false, "an unresolved production import must fail the build");
     assert.match(broken.output, /Could not resolve|does-not-exist/);
-  } finally {
+
     writeFileSync(target, original);
+    assert.equal(build().ok, true, "restored: the build succeeds again");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
-  assert.equal(build().ok, true, "restored: the build succeeds again");
-  assert.ok(existsSync(resolve(repositoryRoot, "apps/web/dist/main.js")), "and the artefact is present");
 });
 
 // ------------------------------- 9. inaccessible required interaction

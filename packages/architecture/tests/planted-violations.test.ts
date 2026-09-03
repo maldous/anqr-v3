@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { test } from "node:test";
 
 import { checkArchitecture, enumerateSources, importsOf, loadRules, type Rules } from "../src/check.ts";
+import { isolatedTree } from "./isolated-tree.ts";
 
 // Adversarial proof for ANQR architecture enforcement.
 //
@@ -362,24 +363,29 @@ test("the real repository is enumerated completely and every finding is attribut
 test("planted in the real repository: a framework import in the real domain is rejected", () => {
   // The synthetic cases prove the rules; this proves the same machinery sees a
   // violation in the actual tree, then leaves nothing behind.
+  // Planted into a disposable copy: two test files planting into the shared
+  // tree interfered, because each runs as its own process and each asserts the
+  // tree is clean first.
+  const tree = isolatedTree(realRoot);
   const file = "packages/artefact/src/qr/planted-framework-violation.ts";
-  const absolute = resolve(realRoot, file);
+  const absolute = resolve(tree.root, file);
   try {
-    const before = checkArchitecture(realRoot, loadRules(realRoot));
+    const before = checkArchitecture(tree.root, loadRules(realRoot));
     const beforeCodes = before.facets.find((entry) => entry.facet === "architectureframeworkisolation");
     assert.deepEqual(beforeCodes?.findings ?? [], [], "the real domain must be clean before planting");
 
     writeFileSync(absolute, `import { render } from "preact";\nexport const used = render;\n`);
-    const after = checkArchitecture(realRoot, loadRules(realRoot));
+    const after = checkArchitecture(tree.root, loadRules(realRoot));
     const afterFacet = after.facets.find((entry) => entry.facet === "architectureframeworkisolation");
     assert.equal(afterFacet?.verdict, "violated");
     assert.equal(afterFacet?.findings.length, 1);
     assert.equal(afterFacet?.findings[0]?.file, file);
     assert.equal(afterFacet?.findings[0]?.code, "FRAMEWORK_IMPORT_IN_ISOLATED_LAYER");
-  } finally {
     rmSync(absolute, { force: true });
+    const restored = checkArchitecture(tree.root, loadRules(realRoot));
+    assert.equal(restored.facets.find((entry) => entry.facet === "architectureframeworkisolation")?.verdict, "satisfied");
+    assert.equal(existsSync(absolute), false, "the planted file must not be left behind");
+  } finally {
+    tree.dispose();
   }
-  const restored = checkArchitecture(realRoot, loadRules(realRoot));
-  assert.equal(restored.facets.find((entry) => entry.facet === "architectureframeworkisolation")?.verdict, "satisfied");
-  assert.equal(existsSync(absolute), false, "the planted file must not be left behind");
 });
