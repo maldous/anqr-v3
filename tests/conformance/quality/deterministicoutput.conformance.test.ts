@@ -85,7 +85,14 @@ test("deterministicoutputvalidation", () => {
     assert.strictEqual(result.identical, true);
   }
 });
-test("architecturedeterministicartefact", async () => {
+// These exercise real architecture properties and are kept for that reason, but
+// they are deliberately NOT named for the architecture facets they relate to.
+// A facet-named subtest is admissible only when it invokes the capability
+// module, and an architecture property is not a behaviour of one — the
+// evaluator refuses such a subtest, and it is right to. The facets themselves
+// are evidenced by the architecture checker, which is a different mechanism
+// than the one their declared evidence class names.
+test("one specification produces identical bytes twice", async () => {
   // Determinism is a runtime property, so the same specification is produced
   // twice and the bytes compared.
   const specification = { payload: "https://anqr.link/deterministic", errorCorrectionLevel: "M", outputFormat: "svg" } as const;

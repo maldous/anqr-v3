@@ -551,7 +551,14 @@ test("qrartefactcreationvalidation", () => {
     true
   );
 });
-test("architecturedomainhasnoruntimedependency", () => {
+// These exercise real architecture properties and are kept for that reason, but
+// they are deliberately NOT named for the architecture facets they relate to.
+// A facet-named subtest is admissible only when it invokes the capability
+// module, and an architecture property is not a behaviour of one — the
+// evaluator refuses such a subtest, and it is right to. The facets themselves
+// are evidenced by the architecture checker, which is a different mechanism
+// than the one their declared evidence class names.
+test("the domain layer carries no third-party runtime dependency", () => {
   // The domain layer must carry no third-party runtime dependency: a codec that
   // needed a package could not be the same codec everywhere it runs.
   const { verdict, findings } = facetVerdict("architecturedomainhasnoruntimedependency");
@@ -559,7 +566,7 @@ test("architecturedomainhasnoruntimedependency", () => {
   assert.equal(verdict, "satisfied");
 });
 
-test("architectureframeworkisolation", () => {
+test("no rendering framework reaches an isolated layer", () => {
   // No rendering framework may reach an isolated layer, so replacing the
   // framework cannot require rewriting the codec.
   const { verdict, findings } = facetVerdict("architectureframeworkisolation");

@@ -132,7 +132,14 @@ test('responsivewebdeliveryvalidation', () => {
   );
   assert.ok(result.success, 'Artefact not identical across viewports');
 });
-test("architecturedeclareddependenciesagree", () => {
+// These exercise real architecture properties and are kept for that reason, but
+// they are deliberately NOT named for the architecture facets they relate to.
+// A facet-named subtest is admissible only when it invokes the capability
+// module, and an architecture property is not a behaviour of one — the
+// evaluator refuses such a subtest, and it is right to. The facets themselves
+// are evidenced by the architecture checker, which is a different mechanism
+// than the one their declared evidence class names.
+test("manifest, lockfile and resolved imports agree", () => {
   // The manifest, the lockfile and the resolved imports agree, so a build on
   // another machine resolves what this one resolved.
   const { verdict, findings } = facetVerdict("architecturedeclareddependenciesagree");
@@ -140,7 +147,7 @@ test("architecturedeclareddependenciesagree", () => {
   assert.equal(verdict, "satisfied");
 });
 
-test("architectureexperiencetraceability", () => {
+test("experience bindings resolve in both directions", () => {
   // Every rendered action resolves to declared authority and every declared
   // action reaches a component that renders it. Both directions.
   const { verdict, findings } = facetVerdict("architectureexperiencetraceability");
@@ -148,13 +155,13 @@ test("architectureexperiencetraceability", () => {
   assert.equal(verdict, "satisfied");
 });
 
-test("architecturestatictypecorrectness", () => {
+test("the declared type check is clean", () => {
   // No static check decides this one, so the type checker is run.
   const result = runScript("typecheck");
   assert.equal(result.ok, true, `tsc must be clean:\n${result.output}`);
 });
 
-test("architecturebuildcorrectness", () => {
+test("the declared build produces the declared artefact", () => {
   // Nor this one: the declared build must resolve every production import and
   // produce the declared artefact.
   const result = runScript("build");

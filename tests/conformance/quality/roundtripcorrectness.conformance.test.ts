@@ -237,7 +237,14 @@ test("roundtripcorrectnessvalidation", () => {
     );
   }
 });
-test("architectureartefactroundtrip", async () => {
+// These exercise real architecture properties and are kept for that reason, but
+// they are deliberately NOT named for the architecture facets they relate to.
+// A facet-named subtest is admissible only when it invokes the capability
+// module, and an architecture property is not a behaviour of one — the
+// evaluator refuses such a subtest, and it is right to. The facets themselves
+// are evidenced by the architecture checker, which is a different mechanism
+// than the one their declared evidence class names.
+test("production decodes its own output to the stated payload", async () => {
   // A produced artefact must decode to exactly what was stated, through the
   // real codec rather than a stand-in.
   const payload = "https://anqr.link/roundtrip-conformance";

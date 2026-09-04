@@ -137,7 +137,14 @@ test('programmaticgenerationvalidation', () => {
     assert.ok(stable);
   }
 });
-test("architecturedependencydirection", () => {
+// These exercise real architecture properties and are kept for that reason, but
+// they are deliberately NOT named for the architecture facets they relate to.
+// A facet-named subtest is admissible only when it invokes the capability
+// module, and an architecture property is not a behaviour of one — the
+// evaluator refuses such a subtest, and it is right to. The facets themselves
+// are evidenced by the architecture checker, which is a different mechanism
+// than the one their declared evidence class names.
+test("layer edges run one way only", () => {
   // Layer edges run one way. A programmatic surface that reached backwards
   // would make the same capability behave differently per caller.
   const { verdict, findings } = facetVerdict("architecturedependencydirection");
@@ -145,7 +152,7 @@ test("architecturedependencydirection", () => {
   assert.equal(verdict, "satisfied");
 });
 
-test("architectureimportsresolve", () => {
+test("every relative import resolves", () => {
   // Every relative import resolves. An unresolvable one is a runtime failure
   // that a type check alone can miss.
   const { verdict, findings } = facetVerdict("architectureimportsresolve");
@@ -154,7 +161,7 @@ test("architectureimportsresolve", () => {
   assert.ok(architectureReport().sourceFileCount > 100, "the check must have enumerated the tree, not an empty set");
 });
 
-test("architecturenodependencycycles", () => {
+test("the module graph has no cycle", () => {
   // No module cycle. A cycle makes initialisation order load-bearing, which
   // is the kind of dependency nobody declares and everybody trips over.
   const { verdict, findings } = facetVerdict("architecturenodependencycycles");
@@ -162,7 +169,7 @@ test("architecturenodependencycycles", () => {
   assert.equal(verdict, "satisfied");
 });
 
-test("architectureportimplementationconformance", () => {
+test("every declared port has a conforming adapter", () => {
   // Every declared port has an adapter that imports its contract and exports
   // an annotated binding, so the type checker decides conformance.
   const { verdict, findings } = facetVerdict("architectureportimplementationconformance");

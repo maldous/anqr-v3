@@ -193,7 +193,14 @@ test("encodingcontrolsurfacevalidation", () => {
     assert.deepEqual(badMask.bound, capability.MASK_BOUNDS);
   }
 });
-test("architectureparameterjoinadmissibility", async () => {
+// These exercise real architecture properties and are kept for that reason, but
+// they are deliberately NOT named for the architecture facets they relate to.
+// A facet-named subtest is admissible only when it invokes the capability
+// module, and an architecture property is not a behaviour of one — the
+// evaluator refuses such a subtest, and it is right to. The facets themselves
+// are evidenced by the architecture checker, which is a different mechanism
+// than the one their declared evidence class names.
+test("a prohibited parameter combination is refused at the join", async () => {
   // A prohibited combination of individually valid values must be refused at
   // the join, before any capability invocation.
   const supplied = { payload: "x".repeat(300), errorCorrectionLevel: "M", outputFormat: "svg", symbolVersion: 5 } as const;

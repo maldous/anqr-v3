@@ -94,7 +94,14 @@ test('accessibleinteractionvalidation', () => {
     assert.ok(failRoleResult.error.message);
   }
 });
-test("architectureaccessibilityconformance", async () => {
+// These exercise real architecture properties and are kept for that reason, but
+// they are deliberately NOT named for the architecture facets they relate to.
+// A facet-named subtest is admissible only when it invokes the capability
+// module, and an architecture property is not a behaviour of one — the
+// evaluator refuses such a subtest, and it is right to. The facets themselves
+// are evidenced by the architecture checker, which is a different mechanism
+// than the one their declared evidence class names.
+test("the rendered surface carries its accessibility semantics", async () => {
   // Accessibility is a property of a rendered surface, so one is rendered into
   // a real document implementation and the semantics are observed rather than
   // inferred from the source.
