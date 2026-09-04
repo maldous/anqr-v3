@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as capability from "../../../src/capabilities/quality/deterministicoutput.ts";
 
+import { createArtefactProducer } from "../../../packages/artefact/src/application/produce-artefact.ts";
+import { createPixelSurface } from "../../../packages/artefact/src/adapters/pixel-surface.ts";
+import { svgContainer } from "../../../packages/artefact/src/adapters/svg-container.ts";
+import { fixedClock } from "../../../packages/artefact/src/adapters/system-clock.ts";
+
 test("deterministicoutputcontracts", () => {
   const artwork: capability.ArtworkSpecification = {
     colors: ["#ff0000", "#00ff00"],
@@ -79,4 +84,21 @@ test("deterministicoutputvalidation", () => {
     const result = capability.validateByteIdenticalOutput([req, req]);
     assert.strictEqual(result.identical, true);
   }
+});
+test("architecturedeterministicartefact", async () => {
+  // Determinism is a runtime property, so the same specification is produced
+  // twice and the bytes compared.
+  const specification = { payload: "https://anqr.link/deterministic", errorCorrectionLevel: "M", outputFormat: "svg" } as const;
+  const producer = createArtefactProducer({ containerFor: () => svgContainer, surfaceFor: createPixelSurface, clock: fixedClock(1_700_000_000_000) });
+  const first = await producer.produce(specification);
+  const second = await producer.produce(specification);
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  if (!first.ok || !second.ok) return;
+  const left = await producer.exportArtefact(first.artefact);
+  const right = await producer.exportArtefact(second.artefact);
+  assert.equal(left.ok && right.ok, true);
+  if (!left.ok || !right.ok) return;
+  assert.equal(left.bytes.length, right.bytes.length, "the same specification must produce the same byte count");
+  assert.deepEqual([...left.bytes], [...right.bytes], "and the same bytes");
 });

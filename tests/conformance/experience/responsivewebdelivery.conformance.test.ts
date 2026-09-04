@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as capability from '../../../src/capabilities/experience/responsivewebdelivery.ts';
 
+import { existsSync } from "node:fs";
+import { architectureReport, distMain, facetVerdict, runScript } from "../architecture-verdict.ts";
+
+
 test('responsivewebdeliverycontracts', () => {
   const smallViewport = capability.createViewport(capability.VIEWPORT_SMALL);
   const largeViewport = capability.createViewport(capability.VIEWPORT_LARGE);
@@ -127,4 +131,34 @@ test('responsivewebdeliveryvalidation', () => {
     largeViewport
   );
   assert.ok(result.success, 'Artefact not identical across viewports');
+});
+test("architecturedeclareddependenciesagree", () => {
+  // The manifest, the lockfile and the resolved imports agree, so a build on
+  // another machine resolves what this one resolved.
+  const { verdict, findings } = facetVerdict("architecturedeclareddependenciesagree");
+  assert.deepEqual(findings, [], "an undeclared or unused dependency would appear here");
+  assert.equal(verdict, "satisfied");
+});
+
+test("architectureexperiencetraceability", () => {
+  // Every rendered action resolves to declared authority and every declared
+  // action reaches a component that renders it. Both directions.
+  const { verdict, findings } = facetVerdict("architectureexperiencetraceability");
+  assert.deepEqual(findings, [], "an unbound rendered action or an unimplemented declared action would appear here");
+  assert.equal(verdict, "satisfied");
+});
+
+test("architecturestatictypecorrectness", () => {
+  // No static check decides this one, so the type checker is run.
+  const result = runScript("typecheck");
+  assert.equal(result.ok, true, `tsc must be clean:\n${result.output}`);
+});
+
+test("architecturebuildcorrectness", () => {
+  // Nor this one: the declared build must resolve every production import and
+  // produce the declared artefact.
+  const result = runScript("build");
+  assert.equal(result.ok, true, `the declared build must succeed:\n${result.output}`);
+  assert.match(result.output, /bundle apps\/web\/dist\/main\.js/u);
+  assert.equal(existsSync(distMain), true, "the declared artefact must exist");
 });

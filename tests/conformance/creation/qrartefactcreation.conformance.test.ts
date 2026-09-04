@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as capability from "../../../src/capabilities/creation/qrartefactcreation.ts";
 
+import { architectureReport, distMain, facetVerdict, runScript } from "../architecture-verdict.ts";
+
+
 test("qrartefactcreationcontracts", () => {
   const payload = "contracts-check";
 
@@ -547,4 +550,19 @@ test("qrartefactcreationvalidation", () => {
     capability.previewMatchesExport(previewFrame.frame, exportResult),
     true
   );
+});
+test("architecturedomainhasnoruntimedependency", () => {
+  // The domain layer must carry no third-party runtime dependency: a codec that
+  // needed a package could not be the same codec everywhere it runs.
+  const { verdict, findings } = facetVerdict("architecturedomainhasnoruntimedependency");
+  assert.deepEqual(findings, [], "a third-party import beneath the domain would appear here");
+  assert.equal(verdict, "satisfied");
+});
+
+test("architectureframeworkisolation", () => {
+  // No rendering framework may reach an isolated layer, so replacing the
+  // framework cannot require rewriting the codec.
+  const { verdict, findings } = facetVerdict("architectureframeworkisolation");
+  assert.deepEqual(findings, [], "a framework import inside domain, ports or application would appear here");
+  assert.equal(verdict, "satisfied");
 });

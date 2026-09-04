@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as capability from "../../../src/capabilities/quality/roundtripcorrectness.ts";
 
+import { createArtefactProducer } from "../../../packages/artefact/src/application/produce-artefact.ts";
+import { createPixelSurface } from "../../../packages/artefact/src/adapters/pixel-surface.ts";
+import { svgContainer } from "../../../packages/artefact/src/adapters/svg-container.ts";
+import { fixedClock } from "../../../packages/artefact/src/adapters/system-clock.ts";
+
 test("roundtripcorrectnesscontracts", () => {
   const reports = capability.validateRoundTripVectors();
   assert.ok(reports.length > 0, "validateRoundTripVectors must return reports");
@@ -231,4 +236,15 @@ test("roundtripcorrectnessvalidation", () => {
       `Vector ${JSON.stringify(report.vector)} failed round-trip validation`,
     );
   }
+});
+test("architectureartefactroundtrip", async () => {
+  // A produced artefact must decode to exactly what was stated, through the
+  // real codec rather than a stand-in.
+  const payload = "https://anqr.link/roundtrip-conformance";
+  const producer = createArtefactProducer({ containerFor: () => svgContainer, surfaceFor: createPixelSurface, clock: fixedClock(1_700_000_000_000) });
+  const produced = await producer.produce({ payload, errorCorrectionLevel: "Q", outputFormat: "svg" });
+  assert.equal(produced.ok, true);
+  if (!produced.ok) return;
+  assert.equal(produced.artefact.scanSafety.verdict, "scannable");
+  assert.equal(produced.artefact.scanSafety.decodedPayload, payload, "production decodes its own output");
 });

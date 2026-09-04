@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as capability from "../../../src/capabilities/creation/encodingcontrolsurface.ts";
 
+import { joinArtefactSpecification } from "../../../packages/artefact/src/model/artefact-specification.ts";
+
 const noAudit = (_opts: capability.EncodingOptions): null => null;
 
 function isError(value: capability.EncodingOptions | capability.EncodingError): value is capability.EncodingError {
@@ -190,4 +192,16 @@ test("encodingcontrolsurfacevalidation", () => {
   if (isError(badMask)) {
     assert.deepEqual(badMask.bound, capability.MASK_BOUNDS);
   }
+});
+test("architectureparameterjoinadmissibility", async () => {
+  // A prohibited combination of individually valid values must be refused at
+  // the join, before any capability invocation.
+  const supplied = { payload: "x".repeat(300), errorCorrectionLevel: "M", outputFormat: "svg", symbolVersion: 5 } as const;
+  assert.equal(joinArtefactSpecification({ ...supplied, payload: "short" }).admissible, true, "version 5 alone is fine");
+  assert.equal(joinArtefactSpecification({ ...supplied, symbolVersion: "auto" }).admissible, true, "the long payload alone is fine");
+  const join = joinArtefactSpecification(supplied);
+  assert.equal(join.admissible, false, "only the combination is prohibited");
+  if (join.admissible) return;
+  assert.equal(join.refusals[0]?.code, "SYMBOL_VERSION_TOO_SMALL_FOR_PAYLOAD");
+  assert.equal(join.refusals[0]?.parameter, "symbolVersion", "the refusal names the parameter to change");
 });

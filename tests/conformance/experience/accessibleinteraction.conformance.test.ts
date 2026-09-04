@@ -2,6 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as capability from '../../../src/capabilities/experience/accessibleinteraction.ts';
 
+import { Window } from "happy-dom";
+import { h, render } from "preact";
+
+import { CreationSurface } from "../../../apps/web/src/surfaces/creation-surface.ts";
+import { createProducer } from "../../../apps/web/src/composition.ts";
+import type { ExperienceModel } from "../../../apps/web/src/experience/machine.ts";
+
+
 test('accessibleinteractioncontracts', () => {
   const control = capability.createControl('c1', 'Accessible Name', 'button', 'enabled');
   assert.ok(control.accessibleName);
@@ -85,4 +93,57 @@ test('accessibleinteractionvalidation', () => {
   } else {
     assert.ok(failRoleResult.error.message);
   }
+});
+test("architectureaccessibilityconformance", async () => {
+  // Accessibility is a property of a rendered surface, so one is rendered into
+  // a real document implementation and the semantics are observed rather than
+  // inferred from the source.
+  const window = new Window({ url: "https://anqr.test/" });
+  const document = window.document as unknown as Document;
+  for (const key of ["window", "document", "HTMLElement", "Node", "Element", "Event", "CustomEvent", "Blob", "URL"] as const) {
+    Object.defineProperty(globalThis, key, {
+      value: (window as unknown as Record<string, unknown>)[key], configurable: true, writable: true,
+    });
+  }
+  const root = document.createElement("div");
+  document.body.append(root);
+  const previewFor = async (model: ExperienceModel): Promise<string | null> =>
+    model.artefact === null ? null : "data:image/svg+xml;base64,PHN2Zy8+";
+  render(h(CreationSurface, { host: { producer: createProducer(), deliver: () => {} }, previewFor }), root as unknown as Element);
+  for (let pass = 0; pass < 30; pass += 1) await new Promise((resolve) => setTimeout(resolve, 2));
+
+  // A landmark and a heading outline.
+  assert.ok(document.querySelector("main") !== null, "the surface must expose a main landmark");
+  assert.ok(document.querySelector("h1, h2") !== null, "the surface must expose a heading");
+
+  // Every interactive control carries an accessible name.
+  const controls = [...document.querySelectorAll("input, select, textarea, button")];
+  assert.ok(controls.length > 0, "there must be controls to assert about");
+  for (const control of controls) {
+    const id = control.getAttribute("id");
+    const labelled = id !== null && document.querySelector(`label[for="${id}"]`) !== null;
+    const named = labelled
+      || (control.getAttribute("aria-label") ?? "").trim().length > 0
+      || (control.textContent ?? "").trim().length > 0;
+    assert.ok(named, `a control carries no accessible name: ${control.outerHTML.slice(0, 100)}`);
+  }
+
+  // Every describedby reference resolves to real text.
+  for (const element of [...document.querySelectorAll("[aria-describedby]")]) {
+    for (const reference of (element.getAttribute("aria-describedby") ?? "").split(/\s+/u).filter(Boolean)) {
+      const target = document.getElementById(reference);
+      assert.ok(target !== null, `aria-describedby names a missing element: ${reference}`);
+      assert.ok((target?.textContent ?? "").trim().length > 0, `aria-describedby target ${reference} is empty`);
+    }
+  }
+
+  // A disabled action is present with a stated reason rather than hidden.
+  for (const action of [...document.querySelectorAll("button[disabled]")]) {
+    const stated = (action.getAttribute("aria-describedby") ?? "").length > 0
+      || (action.textContent ?? "").trim().length > 0;
+    assert.ok(stated, "a disabled action must remain announceable");
+  }
+
+  render(null, root as unknown as Element);
+  window.close();
 });

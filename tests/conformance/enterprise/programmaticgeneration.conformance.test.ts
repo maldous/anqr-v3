@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as capability from '../../../src/capabilities/enterprise/programmaticgeneration.ts';
 
+import { architectureReport, distMain, facetVerdict, runScript } from "../architecture-verdict.ts";
+
+
 test('programmaticgenerationauditmodel', () => {
   const initialState = capability.createAuditState();
   const now = Date.now();
@@ -133,4 +136,36 @@ test('programmaticgenerationvalidation', () => {
     const stable = capability.assertStableStructure(results[0], results[i]);
     assert.ok(stable);
   }
+});
+test("architecturedependencydirection", () => {
+  // Layer edges run one way. A programmatic surface that reached backwards
+  // would make the same capability behave differently per caller.
+  const { verdict, findings } = facetVerdict("architecturedependencydirection");
+  assert.deepEqual(findings, [], "a forbidden layer edge would appear here");
+  assert.equal(verdict, "satisfied");
+});
+
+test("architectureimportsresolve", () => {
+  // Every relative import resolves. An unresolvable one is a runtime failure
+  // that a type check alone can miss.
+  const { verdict, findings } = facetVerdict("architectureimportsresolve");
+  assert.deepEqual(findings, [], "an unresolvable relative specifier would appear here");
+  assert.equal(verdict, "satisfied");
+  assert.ok(architectureReport().sourceFileCount > 100, "the check must have enumerated the tree, not an empty set");
+});
+
+test("architecturenodependencycycles", () => {
+  // No module cycle. A cycle makes initialisation order load-bearing, which
+  // is the kind of dependency nobody declares and everybody trips over.
+  const { verdict, findings } = facetVerdict("architecturenodependencycycles");
+  assert.deepEqual(findings, [], "a cycle would appear here");
+  assert.equal(verdict, "satisfied");
+});
+
+test("architectureportimplementationconformance", () => {
+  // Every declared port has an adapter that imports its contract and exports
+  // an annotated binding, so the type checker decides conformance.
+  const { verdict, findings } = facetVerdict("architectureportimplementationconformance");
+  assert.deepEqual(findings, [], "a missing, empty or bypassing adapter would appear here");
+  assert.equal(verdict, "satisfied");
 });
