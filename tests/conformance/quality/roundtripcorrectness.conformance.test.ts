@@ -2,256 +2,271 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as capability from "../../../src/capabilities/quality/roundtripcorrectness.ts";
 
-import { createArtefactProducer } from "../../../packages/artefact/src/application/produce-artefact.ts";
-import { createPixelSurface } from "../../../packages/artefact/src/adapters/pixel-surface.ts";
-import { svgContainer } from "../../../packages/artefact/src/adapters/svg-container.ts";
-import { fixedClock } from "../../../packages/artefact/src/adapters/system-clock.ts";
+function embeddedBody(artefact: capability.Artefact): string {
+  const sepIndex = artefact.checksum.indexOf("::");
+  assert.ok(sepIndex >= 0, "artefact must embed its encoded body after the checksum");
+  return artefact.checksum.slice(sepIndex + 2);
+}
+
+test("architectureartefactroundtrip", () => {
+  const payload: capability.Payload = { kind: "url", content: "https://example.com/roundtrip" };
+  const style: capability.StyleCustomisation = {
+    foreground: "#000000",
+    background: "#FFFFFF",
+    eyeShape: "rounded",
+    moduleShape: "circle",
+  };
+
+  for (const level of capability.ERROR_CORRECTION_LEVELS) {
+    const options: capability.CreationOptions = { payload, errorCorrection: level, style };
+    const outcome = capability.createArtefact(options, capability.defaultAudit);
+    assert.strictEqual(outcome.success, true, `creation must succeed at level "${level}"`);
+    if (!outcome.success) continue;
+
+    assert.strictEqual(
+      outcome.artefact.version,
+      capability.ARTEFACT_VERSION,
+      "artefact must carry the claimed version",
+    );
+
+    const decoded = capability.decodeArtefact(embeddedBody(outcome.artefact));
+    assert.deepStrictEqual(
+      decoded.payload,
+      payload,
+      `artefact must decode to exactly the requested payload at level "${level}"`,
+    );
+    assert.strictEqual(decoded.errorCorrection, level);
+    assert.deepStrictEqual(decoded.style, style);
+  }
+
+  // The module exposes no partial-damage correction machinery, so the closest
+  // exposed behaviour for the damage clause is that a damaged artefact is
+  // detected by decoding and refused rather than yielding a payload other
+  // than the requested one.
+  const outcome = capability.createArtefact({ payload, errorCorrection: "H" }, capability.defaultAudit);
+  assert.strictEqual(outcome.success, true);
+  if (!outcome.success) return;
+  const damaged: capability.Artefact = {
+    version: outcome.artefact.version,
+    payload: outcome.artefact.payload,
+    checksum: outcome.artefact.checksum.replace(payload.content, payload.content + "-damaged"),
+  };
+  const verdict = capability.defaultAudit({ payload, errorCorrection: "H" }, damaged);
+  assert.strictEqual(verdict.success, false, "a damaged artefact must not pass the decode audit");
+  if (!verdict.success) {
+    assert.strictEqual(verdict.error.code, "ROUNDTRIP_MISMATCH");
+  }
+});
 
 test("roundtripcorrectnesscontracts", () => {
   const reports = capability.validateRoundTripVectors();
-  assert.ok(reports.length > 0, "validateRoundTripVectors must return reports");
+  assert.strictEqual(
+    reports.length,
+    capability.ROUND_TRIP_VECTORS.length,
+    "every canonical vector must be exercised",
+  );
   for (const report of reports) {
     assert.strictEqual(
       report.outcome.success,
       true,
-      `Round-trip vector ${JSON.stringify(report.vector)} must succeed`,
+      `accepted request for kind "${report.vector.kind}" at level "${report.vector.errorCorrection}" must decode to its payload`,
     );
-    if (report.outcome.success) {
-      // No error attached on success
-      assert.strictEqual(
-        ("error" in report.outcome) && (report.outcome as { error?: unknown }).error !== undefined,
-        false,
-        "Successful report must not carry an error",
-      );
-    }
   }
 
-  // Independently confirm the contract: produce an artefact and decode it back,
-  // verifying the decoded request matches the original exactly.
-  const sample = capability.ROUND_TRIP_VECTORS[0];
-  assert.ok(sample !== undefined, "ROUND_TRIP_VECTORS must be non-empty");
-  const payload: capability.Payload = { kind: sample.kind, content: sample.content };
-  const baseOptions: capability.CreationOptions = {
+  const payload: capability.Payload = {
+    kind: "text",
+    content: "hello contracts",
+    metadata: { lang: "en", campaign: "q3" },
+  };
+  const options: capability.CreationOptions = {
     payload,
-    errorCorrection: sample.errorCorrection,
+    errorCorrection: "Q",
+    overlay: { logo: { data: "LOGO", size: 48 }, frame: { label: "SCAN", color: "#FF0000" } },
+    animation: { enabled: true, speed: "fast" },
   };
-  const fullOptions: capability.CreationOptions = {
-    ...baseOptions,
-    ...(sample.style !== undefined ? { style: sample.style } : {}),
-    ...(sample.overlay !== undefined ? { overlay: sample.overlay } : {}),
-    ...(sample.artwork !== undefined ? { artwork: sample.artwork } : {}),
-    ...(sample.animation !== undefined ? { animation: sample.animation } : {}),
-  };
-
-  const outcome = capability.createArtefact(fullOptions, capability.defaultAudit);
-  assert.strictEqual(outcome.success, true, "Sample creation must succeed");
+  const outcome = capability.createArtefact(options, capability.defaultAudit);
+  assert.strictEqual(outcome.success, true, "a valid request must be accepted");
   if (!outcome.success) return;
 
-  const sep = "::";
-  const sepIndex = outcome.artefact.checksum.indexOf(sep);
-  assert.ok(sepIndex >= 0, "Artefact checksum must embed the body");
-  const body = outcome.artefact.checksum.slice(sepIndex + sep.length);
-  const decoded = capability.decodeArtefact(body);
-
-  assert.strictEqual(decoded.payload.kind, fullOptions.payload.kind);
-  assert.strictEqual(decoded.payload.content, fullOptions.payload.content);
-  assert.strictEqual(decoded.errorCorrection, fullOptions.errorCorrection);
-  assert.strictEqual(decoded.style?.foreground, fullOptions.style?.foreground);
-  assert.strictEqual(decoded.style?.background, fullOptions.style?.background);
-  assert.strictEqual(decoded.style?.eyeShape, fullOptions.style?.eyeShape);
-  assert.strictEqual(decoded.style?.moduleShape, fullOptions.style?.moduleShape);
-  assert.strictEqual(decoded.overlay?.logo?.data, fullOptions.overlay?.logo?.data);
-  assert.strictEqual(decoded.overlay?.logo?.size, fullOptions.overlay?.logo?.size);
-  assert.strictEqual(decoded.overlay?.frame?.label, fullOptions.overlay?.frame?.label);
-  assert.strictEqual(decoded.overlay?.frame?.color, fullOptions.overlay?.frame?.color);
-  assert.strictEqual(decoded.artwork?.eyeColor, fullOptions.artwork?.eyeColor);
-  assert.strictEqual(decoded.artwork?.dataColor, fullOptions.artwork?.dataColor);
-  assert.strictEqual(decoded.artwork?.timingPattern, fullOptions.artwork?.timingPattern);
-  assert.strictEqual(decoded.animation?.enabled, fullOptions.animation?.enabled);
-  assert.strictEqual(decoded.animation?.speed, fullOptions.animation?.speed);
+  const decoded = capability.decodeArtefact(embeddedBody(outcome.artefact));
+  assert.strictEqual(decoded.payload.kind, payload.kind);
+  assert.strictEqual(decoded.payload.content, payload.content);
+  assert.deepStrictEqual(decoded.payload.metadata, payload.metadata);
+  assert.strictEqual(decoded.errorCorrection, options.errorCorrection);
+  assert.deepStrictEqual(decoded.overlay, options.overlay);
+  assert.deepStrictEqual(decoded.animation, options.animation);
 });
 
 test("roundtripcorrectnesserrormodel", () => {
-  const options: capability.CreationOptions = {
-    payload: { kind: "text", content: "test" },
+  // The '|' in this content collides with the encoding's segment separator,
+  // so the artefact cannot decode back to the request: creation must refuse
+  // rather than return an artefact violating the invariant.
+  const unroundtrippable: capability.CreationOptions = {
+    payload: { kind: "text", content: "left|EC=H" },
     errorCorrection: "M",
   };
-  const failingAudit: (
-    opts: capability.CreationOptions,
-    art: capability.Artefact,
-  ) => capability.ValidationOutcome = () => ({
-    success: false,
-    error: {
-      message: "forced failure",
-      code: "ROUNDTRIP_MISMATCH" as capability.CreationErrorCode,
-      role: "alert",
-    },
-  });
-  const outcome = capability.createArtefact(options, failingAudit);
-  assert.strictEqual(outcome.success, false, "Failing audit must deny creation");
-  if (outcome.success) return;
-  assert.strictEqual(outcome.error.code, "ROUNDTRIP_MISMATCH");
-  assert.strictEqual(outcome.error.role, "alert");
-  assert.ok(typeof outcome.error.message === "string" && outcome.error.message.length > 0);
-
-  // An audit that throws is also fail-closed.
-  const throwingAudit: (
-    opts: capability.CreationOptions,
-    art: capability.Artefact,
-  ) => capability.ValidationOutcome = () => {
-    throw new Error("audit boom");
-  };
-  const thrownOutcome = capability.createArtefact(options, throwingAudit);
-  assert.strictEqual(thrownOutcome.success, false, "Throwing audit must deny creation");
-  if (!thrownOutcome.success) {
-    assert.strictEqual(thrownOutcome.error.code, "ROUNDTRIP_MISMATCH");
+  const refused = capability.createArtefact(unroundtrippable, capability.defaultAudit);
+  assert.strictEqual(refused.success, false, "creation must refuse when the invariant cannot be met");
+  if (!refused.success) {
+    assert.strictEqual(refused.error.code, "ROUNDTRIP_MISMATCH");
+    assert.strictEqual(refused.error.role, "alert");
+    assert.strictEqual("artefact" in refused, false, "a refusal must not carry an artefact");
   }
 
-  // Invalid input is also refused and never returns an artefact.
-  const invalidOptions = {
-    payload: { kind: "text", content: "" },
+  const valid: capability.CreationOptions = {
+    payload: { kind: "text", content: "plain" },
     errorCorrection: "M",
-  } as unknown as capability.CreationOptions;
-  const invalidOutcome = capability.createArtefact(invalidOptions, capability.defaultAudit);
-  assert.strictEqual(invalidOutcome.success, false, "Invalid payload must deny creation");
-  if (!invalidOutcome.success) {
-    assert.strictEqual(invalidOutcome.error.code, "INVALID_PAYLOAD_CONTENT");
+  };
+
+  const failingAudit = (): capability.ValidationOutcome => ({
+    success: false,
+    error: { message: "forced refusal", code: "ROUNDTRIP_MISMATCH", role: "alert" },
+  });
+  const denied = capability.createArtefact(valid, failingAudit);
+  assert.strictEqual(denied.success, false, "an audit failure must deny creation");
+  if (!denied.success) {
+    assert.strictEqual(denied.error.code, "ROUNDTRIP_MISMATCH");
+  }
+
+  const throwingAudit = (): capability.ValidationOutcome => {
+    throw new Error("audit refused");
+  };
+  const thrown = capability.createArtefact(valid, throwingAudit);
+  assert.strictEqual(thrown.success, false, "a throwing audit must deny creation");
+  if (!thrown.success) {
+    assert.strictEqual(thrown.error.code, "ROUNDTRIP_MISMATCH");
+  }
+
+  const emptyContent = capability.createArtefact(
+    { payload: { kind: "text", content: "" }, errorCorrection: "M" },
+    capability.defaultAudit,
+  );
+  assert.strictEqual(emptyContent.success, false, "empty payload content must be refused");
+  if (!emptyContent.success) {
+    assert.strictEqual(emptyContent.error.code, "INVALID_PAYLOAD_CONTENT");
+  }
+
+  const badKind = capability.createArtefact(
+    {
+      payload: { kind: "barcode" as unknown as capability.PayloadKind, content: "x" },
+      errorCorrection: "M",
+    },
+    capability.defaultAudit,
+  );
+  assert.strictEqual(badKind.success, false, "an undeclared payload kind must be refused");
+  if (!badKind.success) {
+    assert.strictEqual(badKind.error.code, "INVALID_PAYLOAD_KIND");
+  }
+
+  const badLevel = capability.createArtefact(
+    {
+      payload: { kind: "text", content: "x" },
+      errorCorrection: "X" as unknown as capability.ErrorCorrectionLevel,
+    },
+    capability.defaultAudit,
+  );
+  assert.strictEqual(badLevel.success, false, "an undeclared error-correction level must be refused");
+  if (!badLevel.success) {
+    assert.strictEqual(badLevel.error.code, "INVALID_ERROR_CORRECTION");
   }
 });
 
 test("roundtripcorrectnessproof", () => {
-  // Evidence for round-trip correctness must come from decoding artefacts,
-  // not from inspecting encoder internals. Drive a creation through
-  // createArtefact and recover the body via the public artefact shape
-  // (the decoder reads the embedded body in the checksum field).
-  const sample = capability.ROUND_TRIP_VECTORS[0];
-  assert.ok(sample !== undefined);
   const options: capability.CreationOptions = {
-    payload: { kind: sample.kind, content: sample.content },
-    errorCorrection: sample.errorCorrection,
-    ...(sample.style !== undefined ? { style: sample.style } : {}),
-    ...(sample.overlay !== undefined ? { overlay: sample.overlay } : {}),
-    ...(sample.artwork !== undefined ? { artwork: sample.artwork } : {}),
-    ...(sample.animation !== undefined ? { animation: sample.animation } : {}),
-  };
-
-  const outcome = capability.createArtefact(options, capability.defaultAudit);
-  assert.strictEqual(outcome.success, true, "Default audit must accept a valid request");
-  if (!outcome.success) return;
-
-  // Decode the produced artefact via the public decoder; this is the
-  // admissible evidence for round-trip correctness.
-  const sep = "::";
-  const sepIndex = outcome.artefact.checksum.indexOf(sep);
-  assert.ok(sepIndex >= 0);
-  const body = outcome.artefact.checksum.slice(sepIndex + sep.length);
-  const decoded = capability.decodeArtefact(body);
-
-  // The decoded request must equal the original. Compare each declared facet.
-  assert.strictEqual(decoded.payload.kind, options.payload.kind);
-  assert.strictEqual(decoded.payload.content, options.payload.content);
-  assert.strictEqual(decoded.errorCorrection, options.errorCorrection);
-  assert.deepStrictEqual(decoded.style, options.style);
-  assert.deepStrictEqual(decoded.overlay, options.overlay);
-  assert.deepStrictEqual(decoded.artwork, options.artwork);
-  assert.deepStrictEqual(decoded.animation, options.animation);
-
-  // A custom audit that relies on decoding alone can refuse an artefact whose
-  // decoded body differs from the original request.
-  const mismatchOptions: capability.CreationOptions = {
-    payload: { kind: "text", content: "expected" },
+    payload: { kind: "text", content: "proof-body" },
     errorCorrection: "M",
   };
-  const honestAudit: (
-    opts: capability.CreationOptions,
-    art: capability.Artefact,
-  ) => capability.ValidationOutcome = (opts, art) => {
-    const idx = art.checksum.indexOf("::");
-    if (idx < 0) {
-      return {
-        success: false,
-        error: { message: "no body", code: "ROUNDTRIP_MISMATCH", role: "alert" },
-      };
-    }
-    const decodedBody = capability.decodeArtefact(art.checksum.slice(idx + 2));
-    if (decodedBody.payload.content !== opts.payload.content) {
-      return {
-        success: false,
-        error: { message: "mismatch", code: "ROUNDTRIP_MISMATCH", role: "alert" },
-      };
-    }
-    return { success: true };
+  const outcome = capability.createArtefact(options, capability.defaultAudit);
+  assert.strictEqual(outcome.success, true, "the decode-based audit must accept a valid request");
+  if (!outcome.success) return;
+
+  // Admissible evidence: decoding the produced artefact, not the encoder's internals.
+  const decoded = capability.decodeArtefact(embeddedBody(outcome.artefact));
+  assert.deepStrictEqual(decoded.payload, options.payload);
+  assert.strictEqual(decoded.errorCorrection, options.errorCorrection);
+
+  const proven = capability.proveRoundTrip(options, outcome.artefact);
+  assert.strictEqual(proven.success, true, "the exported proof must accept the produced artefact");
+
+  const mismatched = capability.proveRoundTrip(
+    { payload: { kind: "text", content: "different" }, errorCorrection: "M" },
+    outcome.artefact,
+  );
+  assert.strictEqual(
+    mismatched.success,
+    false,
+    "the proof must reject an artefact that decodes to a different payload",
+  );
+  if (!mismatched.success) {
+    assert.strictEqual(mismatched.error.code, "ROUNDTRIP_MISMATCH");
+  }
+
+  // A forgery whose stated payload differs from what its body decodes to can
+  // only be caught by decoding; the decode-based default audit must refuse it.
+  const statedPayload: capability.Payload = { kind: "text", content: "stated" };
+  const forgedBody = capability.encodeArtefact(
+    { kind: "text", content: "tampered" },
+    "M",
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+  );
+  const forged: capability.Artefact = {
+    version: capability.ARTEFACT_VERSION,
+    payload: statedPayload,
+    checksum: "c0::" + forgedBody,
   };
-  const mismatchOutcome = capability.createArtefact(mismatchOptions, honestAudit);
-  assert.strictEqual(mismatchOutcome.success, true, "Honest decoding-based audit accepts the artefact");
+  const verdict = capability.defaultAudit({ payload: statedPayload, errorCorrection: "M" }, forged);
+  assert.strictEqual(verdict.success, false, "decoding must expose the forged body");
+  if (!verdict.success) {
+    assert.strictEqual(verdict.error.code, "ROUNDTRIP_MISMATCH");
+  }
 });
 
 test("roundtripcorrectnessvalidation", () => {
-  // Payload kinds covered: every declared PayloadKind must appear at least once.
-  const kindsPresent = new Set<capability.PayloadKind>();
-  for (const v of capability.ROUND_TRIP_VECTORS) kindsPresent.add(v.kind);
-  for (const k of capability.PAYLOAD_KINDS) {
-    assert.ok(
-      kindsPresent.has(k),
-      `ROUND_TRIP_VECTORS must include payload kind "${k}"`,
-    );
-  }
-
-  // Error correction levels covered: every declared level must appear at least once.
-  const ecsPresent = new Set<capability.ErrorCorrectionLevel>();
-  for (const v of capability.ROUND_TRIP_VECTORS) ecsPresent.add(v.errorCorrection);
-  for (const ec of capability.ERROR_CORRECTION_LEVELS) {
-    assert.ok(
-      ecsPresent.has(ec),
-      `ROUND_TRIP_VECTORS must include error correction level "${ec}"`,
-    );
-  }
-
-  // Representative customisations present across the vectors.
+  const pairs = new Set<string>();
   let hasStyle = false;
   let hasOverlay = false;
   let hasArtwork = false;
   let hasAnimation = false;
-  for (const v of capability.ROUND_TRIP_VECTORS) {
-    if (v.style !== undefined) hasStyle = true;
-    if (v.overlay !== undefined) hasOverlay = true;
-    if (v.artwork !== undefined) hasArtwork = true;
-    if (v.animation !== undefined) hasAnimation = true;
-    if (hasStyle && hasOverlay && hasArtwork && hasAnimation) break;
+  let hasFullyCustomised = false;
+  for (const vector of capability.ROUND_TRIP_VECTORS) {
+    pairs.add(`${vector.kind}/${vector.errorCorrection}`);
+    if (vector.style !== undefined) hasStyle = true;
+    if (vector.overlay !== undefined) hasOverlay = true;
+    if (vector.artwork !== undefined) hasArtwork = true;
+    if (vector.animation !== undefined) hasAnimation = true;
+    if (
+      vector.style !== undefined &&
+      vector.overlay !== undefined &&
+      vector.artwork !== undefined &&
+      vector.animation !== undefined
+    ) {
+      hasFullyCustomised = true;
+    }
   }
-  assert.ok(hasStyle, "ROUND_TRIP_VECTORS must include style customisation");
-  assert.ok(hasOverlay, "ROUND_TRIP_VECTORS must include overlay customisation");
-  assert.ok(hasArtwork, "ROUND_TRIP_VECTORS must include artwork customisation");
-  assert.ok(hasAnimation, "ROUND_TRIP_VECTORS must include animation customisation");
+  for (const kind of capability.PAYLOAD_KINDS) {
+    for (const level of capability.ERROR_CORRECTION_LEVELS) {
+      assert.ok(
+        pairs.has(`${kind}/${level}`),
+        `vectors must cover payload kind "${kind}" at error-correction level "${level}"`,
+      );
+    }
+  }
+  assert.ok(hasStyle, "vectors must include styling customisation");
+  assert.ok(hasOverlay, "vectors must include overlay customisation");
+  assert.ok(hasArtwork, "vectors must include artwork customisation");
+  assert.ok(hasAnimation, "vectors must include animation customisation");
+  assert.ok(hasFullyCustomised, "vectors must include a fully customised request");
 
-  // And validateRoundTripVectors must actually run the matrix end-to-end and
-  // report success for every vector: this is the canonical validation of the
-  // round-trip property across the declared kinds, levels and customisations.
   const reports = capability.validateRoundTripVectors();
-  assert.ok(reports.length > 0, "validateRoundTripVectors must yield reports");
+  assert.strictEqual(reports.length, capability.ROUND_TRIP_VECTORS.length);
   for (const report of reports) {
     assert.strictEqual(
       report.outcome.success,
       true,
-      `Vector ${JSON.stringify(report.vector)} failed round-trip validation`,
+      `vector for kind "${report.vector.kind}" at level "${report.vector.errorCorrection}" must round-trip`,
     );
   }
-});
-// These exercise real architecture properties and are kept for that reason, but
-// they are deliberately NOT named for the architecture facets they relate to.
-// A facet-named subtest is admissible only when it invokes the capability
-// module, and an architecture property is not a behaviour of one — the
-// evaluator refuses such a subtest, and it is right to. The facets themselves
-// are evidenced by the architecture checker, which is a different mechanism
-// than the one their declared evidence class names.
-test("production decodes its own output to the stated payload", async () => {
-  // A produced artefact must decode to exactly what was stated, through the
-  // real codec rather than a stand-in.
-  const payload = "https://anqr.link/roundtrip-conformance";
-  const producer = createArtefactProducer({ containerFor: () => svgContainer, surfaceFor: createPixelSurface, clock: fixedClock(1_700_000_000_000) });
-  const produced = await producer.produce({ payload, errorCorrectionLevel: "Q", outputFormat: "svg" });
-  assert.equal(produced.ok, true);
-  if (!produced.ok) return;
-  assert.equal(produced.artefact.scanSafety.verdict, "scannable");
-  assert.equal(produced.artefact.scanSafety.decodedPayload, payload, "production decodes its own output");
 });

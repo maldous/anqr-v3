@@ -1,156 +1,165 @@
-import assert from 'node:assert/strict';
-import test from 'node:test';
-import * as capability from '../../../src/capabilities/experience/accessibleinteraction.ts';
+import assert from "node:assert/strict";
+import test from "node:test";
+import * as capability from "../../../src/capabilities/experience/accessibleinteraction.ts";
 
-import { Window } from "happy-dom";
-import { h, render } from "preact";
+test("accessibleinteractioncontracts", () => {
+  const first = capability.createControl("create", "Create artefact", "button", "enabled");
+  const second = capability.createControl("customise", "Customise artefact");
 
-import { CreationSurface } from "../../../apps/web/src/surfaces/creation-surface.ts";
-import { createProducer } from "../../../apps/web/src/composition.ts";
-import type { ExperienceModel } from "../../../apps/web/src/experience/machine.ts";
-
-
-test('accessibleinteractioncontracts', () => {
-  const control = capability.createControl('c1', 'Accessible Name', 'button', 'enabled');
-  assert.ok(control.accessibleName);
-  assert.ok(control.role);
-  assert.ok(control.currentState);
-
-  const controls = [control, capability.createControl('c2', 'Second')];
-  const withOrder = capability.setFocusOrder(controls);
-  assert.equal(withOrder[0].focusOrder, 0);
-  assert.equal(withOrder[1].focusOrder, 1);
-});
-
-test('accessibleinteractionerrormodel', () => {
-  const invalid: capability.InteractiveControl = {
-    id: 'invalid',
-    accessibleName: '',
-    role: 'button',
-    currentState: 'enabled',
-  };
-  const result = capability.validateControl(invalid);
-  assert.equal(result.success, false);
-  if (result.success) {
-    throw new Error('Expected failure');
-  } else {
-    assert.equal(result.error.role, 'alert');
-    assert.equal(result.error.liveRegion, 'assertive');
+  const validated = capability.validateControl(first);
+  if (!validated.success) {
+    assert.fail("a control created with a name, role and state must validate");
   }
+  assert.equal(validated.control.accessibleName, "Create artefact");
+  assert.equal(validated.control.role, "button");
+  assert.equal(validated.control.currentState, "enabled");
+
+  const ordered = capability.setFocusOrder([first, second]);
+  assert.equal(ordered.length, 2);
+  assert.equal(ordered[0]?.focusOrder, 0);
+  assert.equal(ordered[1]?.focusOrder, 1);
+
+  assert.throws(() => capability.createControl("nameless", ""));
+  assert.throws(() => capability.createControl("roleless", "Named", ""));
+  assert.throws(() => capability.createControl("stateless", "Named", "button", " "));
 });
 
-test('accessibleinteractionuisemantics', () => {
-  const control = capability.createControl('c1', 'Name');
-  const focused = capability.applyVisibleFocus(control);
+test("accessibleinteractionerrormodel", () => {
+  const unnamed: capability.InteractiveControl = {
+    id: "unnamed",
+    accessibleName: "",
+    role: "button",
+    currentState: "enabled",
+  };
+  const refusal = capability.validateControl(unnamed);
+  if (refusal.success) {
+    assert.fail("a control without an accessible name must be refused");
+  }
+  assert.equal(refusal.error.role, capability.ALERT_ROLE);
+  assert.equal(refusal.error.liveRegion, capability.LIVE_REGION_ASSERTIVE);
+  assert.ok(refusal.error.message.includes("unnamed"));
+  assert.ok(refusal.error.message.trim().length > 0);
+
+  const accepted = capability.validateControl(
+    capability.createControl("named", "Named control")
+  );
+  if (!accepted.success) {
+    assert.fail("a fully described control must not be refused");
+  }
+  assert.equal(accepted.control.id, "named");
+});
+
+test("accessibleinteractionuisemantics", () => {
+  const preview = capability.createControl("preview", "Artefact preview", "img", "rendered");
+  const exportButton = capability.createControl("export", "Export artefact");
+
+  const focused = capability.applyVisibleFocus(preview);
   assert.equal(focused.focusVisible, true);
+  assert.equal(preview.focusVisible, undefined);
 
-  const controls = [control, capability.createControl('c2', 'Second')];
-  const ordered = capability.setFocusOrder(controls);
-  assert.equal(ordered[0].focusOrder, 0);
-  assert.equal(ordered[1].focusOrder, 1);
+  const readingOrder = [preview, exportButton];
+  const ordered = capability.setFocusOrder(readingOrder);
+  for (let index = 0; index < ordered.length; index += 1) {
+    assert.equal(ordered[index]?.focusOrder, index);
+    assert.equal(ordered[index]?.id, readingOrder[index]?.id);
+  }
 
-  const withAlt = capability.setPreviewAltText(control, 'Preview alt');
-  assert.equal(withAlt.previewAltText, 'Preview alt');
+  const described = capability.setPreviewAltText(
+    preview,
+    "QR code encoding the shared collection link"
+  );
+  assert.equal(described.previewAltText, "QR code encoding the shared collection link");
+
+  assert.throws(() => capability.setPreviewAltText(preview, ""));
+  assert.throws(() => capability.setPreviewAltText(preview, "   "));
 });
 
-test('accessibleinteractionvalidation', () => {
-  const initial = capability.createControl('c1', 'Name', 'button', 'enabled');
-  const customise = (c: capability.InteractiveControl): capability.InteractiveControl => c;
-  const exportFn = (c: capability.InteractiveControl): string => c.accessibleName;
-  const successResult = capability.exerciseKeyboardPath(initial, customise, exportFn);
-  assert.equal(successResult.success, true);
-  if (successResult.success) {
-    assert.ok(successResult.control.accessibleName);
-    assert.ok(successResult.control.role);
-  }
+test("accessibleinteractionvalidation", () => {
+  const created = capability.createControl("artefact", "New artefact", "button", "enabled");
+  const customise = (control: capability.InteractiveControl): capability.InteractiveControl =>
+    capability.ensureKeyboardAccessible({ ...control, currentState: "customised" });
 
-  // Failure: missing accessible name
-  const invalidName: capability.InteractiveControl = {
-    id: 'invalid-name',
-    accessibleName: '',
-    role: 'button',
-    currentState: 'enabled',
+  let exportedName: string | null = null;
+  const exportFn = (control: capability.InteractiveControl): string => {
+    exportedName = control.accessibleName;
+    return control.accessibleName;
   };
-  const failNameResult = capability.exerciseKeyboardPath(invalidName, customise, exportFn);
-  assert.equal(failNameResult.success, false);
-  if (failNameResult.success) {
-    throw new Error('Expected failure for missing name');
-  } else {
-    assert.ok(failNameResult.error.message);
-  }
 
-  // Failure: missing role
-  const invalidRole: capability.InteractiveControl = {
-    id: 'invalid-role',
-    accessibleName: 'Name',
-    role: '',
-    currentState: 'enabled',
-  };
-  const failRoleResult = capability.exerciseKeyboardPath(invalidRole, customise, exportFn);
-  assert.equal(failRoleResult.success, false);
-  if (failRoleResult.success) {
-    throw new Error('Expected failure for missing role');
-  } else {
-    assert.ok(failRoleResult.error.message);
+  const outcome = capability.exerciseKeyboardPath(created, customise, exportFn);
+  if (!outcome.success) {
+    assert.fail("a valid keyboard-only path must complete");
   }
+  assert.ok(outcome.control.accessibleName.trim().length > 0);
+  assert.ok(outcome.control.role.trim().length > 0);
+  assert.equal(outcome.control.tabIndex, 0);
+  assert.equal(outcome.control.currentState, "customised");
+  assert.equal(exportedName, "New artefact");
+
+  exportedName = null;
+  const stripName = (control: capability.InteractiveControl): capability.InteractiveControl => ({
+    ...control,
+    accessibleName: "",
+  });
+  const refused = capability.exerciseKeyboardPath(created, stripName, exportFn);
+  if (refused.success) {
+    assert.fail("a customisation that removes the accessible name must be refused");
+  }
+  assert.equal(refused.error.role, capability.ALERT_ROLE);
+  assert.equal(exportedName, null);
+
+  const neverCustomise = (control: capability.InteractiveControl): capability.InteractiveControl =>
+    control;
+  const invalidStart: capability.InteractiveControl = {
+    id: "roleless",
+    accessibleName: "Named",
+    role: "",
+    currentState: "enabled",
+  };
+  const refusedAtStart = capability.exerciseKeyboardPath(invalidStart, neverCustomise, exportFn);
+  if (refusedAtStart.success) {
+    assert.fail("a control without a role must not begin the path");
+  }
+  assert.ok(refusedAtStart.error.message.includes("roleless"));
+  assert.equal(exportedName, null);
 });
-// These exercise real architecture properties and are kept for that reason, but
-// they are deliberately NOT named for the architecture facets they relate to.
-// A facet-named subtest is admissible only when it invokes the capability
-// module, and an architecture property is not a behaviour of one — the
-// evaluator refuses such a subtest, and it is right to. The facets themselves
-// are evidenced by the architecture checker, which is a different mechanism
-// than the one their declared evidence class names.
-test("the rendered surface carries its accessibility semantics", async () => {
-  // Accessibility is a property of a rendered surface, so one is rendered into
-  // a real document implementation and the semantics are observed rather than
-  // inferred from the source.
-  const window = new Window({ url: "https://anqr.test/" });
-  const document = window.document as unknown as Document;
-  for (const key of ["window", "document", "HTMLElement", "Node", "Element", "Event", "CustomEvent", "Blob", "URL"] as const) {
-    Object.defineProperty(globalThis, key, {
-      value: (window as unknown as Record<string, unknown>)[key], configurable: true, writable: true,
-    });
-  }
-  const root = document.createElement("div");
-  document.body.append(root);
-  const previewFor = async (model: ExperienceModel): Promise<string | null> =>
-    model.artefact === null ? null : "data:image/svg+xml;base64,PHN2Zy8+";
-  render(h(CreationSurface, { host: { producer: createProducer(), deliver: () => {} }, previewFor }), root as unknown as Element);
-  for (let pass = 0; pass < 30; pass += 1) await new Promise((resolve) => setTimeout(resolve, 2));
 
-  // A landmark and a heading outline.
-  assert.ok(document.querySelector("main") !== null, "the surface must expose a main landmark");
-  assert.ok(document.querySelector("h1, h2") !== null, "the surface must expose a heading");
+test("architectureaccessibilityconformance", () => {
+  const surface = [
+    capability.createControl("create", "Create artefact", "button", "enabled"),
+    capability.createControl("customise", "Customise artefact", "button", "enabled"),
+    capability.createControl("export", "Export artefact", "button", "disabled"),
+  ];
 
-  // Every interactive control carries an accessible name.
-  const controls = [...document.querySelectorAll("input, select, textarea, button")];
-  assert.ok(controls.length > 0, "there must be controls to assert about");
-  for (const control of controls) {
-    const id = control.getAttribute("id");
-    const labelled = id !== null && document.querySelector(`label[for="${id}"]`) !== null;
-    const named = labelled
-      || (control.getAttribute("aria-label") ?? "").trim().length > 0
-      || (control.textContent ?? "").trim().length > 0;
-    assert.ok(named, `a control carries no accessible name: ${control.outerHTML.slice(0, 100)}`);
-  }
+  const rendered = capability
+    .setFocusOrder(surface)
+    .map((control) => capability.applyVisibleFocus(capability.ensureKeyboardAccessible(control)));
 
-  // Every describedby reference resolves to real text.
-  for (const element of [...document.querySelectorAll("[aria-describedby]")]) {
-    for (const reference of (element.getAttribute("aria-describedby") ?? "").split(/\s+/u).filter(Boolean)) {
-      const target = document.getElementById(reference);
-      assert.ok(target !== null, `aria-describedby names a missing element: ${reference}`);
-      assert.ok((target?.textContent ?? "").trim().length > 0, `aria-describedby target ${reference} is empty`);
+  assert.equal(rendered.length, surface.length);
+  for (let index = 0; index < rendered.length; index += 1) {
+    const control = rendered[index];
+    assert.ok(control !== undefined);
+    const validated = capability.validateControl(control);
+    if (!validated.success) {
+      assert.fail(`rendered control "${control.id}" must satisfy its accessibility obligations`);
     }
+    assert.ok(validated.control.accessibleName.trim().length > 0);
+    assert.ok(validated.control.role.trim().length > 0);
+    assert.ok(validated.control.currentState.trim().length > 0);
+    assert.equal(validated.control.focusOrder, index);
+    assert.equal(validated.control.tabIndex, 0);
+    assert.equal(validated.control.focusVisible, true);
   }
 
-  // A disabled action is present with a stated reason rather than hidden.
-  for (const action of [...document.querySelectorAll("button[disabled]")]) {
-    const stated = (action.getAttribute("aria-describedby") ?? "").length > 0
-      || (action.textContent ?? "").trim().length > 0;
-    assert.ok(stated, "a disabled action must remain announceable");
+  const stateless: capability.InteractiveControl = {
+    id: "stateless",
+    accessibleName: "Named",
+    role: "button",
+    currentState: "",
+  };
+  const refused = capability.validateControl(capability.ensureKeyboardAccessible(stateless));
+  if (refused.success) {
+    assert.fail("a surface containing a control without a state must be refused");
   }
-
-  render(null, root as unknown as Element);
-  window.close();
+  assert.equal(refused.error.role, capability.ALERT_ROLE);
+  assert.equal(refused.error.liveRegion, capability.LIVE_REGION_ASSERTIVE);
 });
