@@ -32,7 +32,7 @@ function workflowCommands(text: string): readonly string[] {
     .filter((command): command is string => command !== undefined);
 }
 
-const CANONICAL = ["npm ci", "npm run typecheck", "npm test", "npm run architecture", "npm run build", "npm run validate"] as const;
+const CANONICAL = ["npm ci", "npm run typecheck", "npm test", "npm run architecture", "npm run build", "npm run delivery", "npm run validate"] as const;
 
 test("the automated gate runs the canonical chain, in order and complete", () => {
   assert.deepEqual(workflowCommands(workflow), [...CANONICAL],
@@ -49,7 +49,7 @@ test("every script the gate invokes exists", () => {
 
 test("validate is the composite of the chain, not a shortcut past it", () => {
   const validate = manifest.scripts.validate ?? "";
-  for (const part of ["typecheck", "test", "architecture", "build"]) {
+  for (const part of ["typecheck", "test", "architecture", "build", "delivery"]) {
     assert.match(validate, new RegExp(`\\b${part}\\b`, "u"),
       `validate must include ${part}, or the single-command route proves less than the gate`);
   }

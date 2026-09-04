@@ -12,8 +12,10 @@
     "test:conformance": "node --test \"tests/conformance/**/*.conformance.test.ts\"",
     "architecture": "node packages/architecture/src/check.ts",
     "architecture:json": "node packages/architecture/src/check.ts --json",
-    "validate": "npm run typecheck && npm test && npm run architecture && npm run build",
-    "build": "node apps/web/tools/build.mjs"
+    "validate": "npm run typecheck && npm test && npm run architecture && npm run build && npm run delivery",
+    "build": "node apps/web/tools/build.mjs",
+    "delivery": "node packages/architecture/src/delivery-cli.ts",
+    "delivery:json": "node packages/architecture/src/delivery-cli.ts --json"
   },
   "dependencies": {
     "preact": "10.29.8"

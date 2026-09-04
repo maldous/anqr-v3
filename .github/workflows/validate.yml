@@ -27,4 +27,5 @@ jobs:
       - run: npm test
       - run: npm run architecture
       - run: npm run build
+      - run: npm run delivery
       - run: npm run validate

@@ -1,0 +1,949 @@
+{
+  "schema": "urn:anqr:delivery-projection:1",
+  "authority": {
+    "manifest": "graph/manifests/anqr-application.json",
+    "requirementSet": "urn:anqr:delivery-requirement-set:1",
+    "profileRevision": "3"
+  },
+  "rungs": [
+    {
+      "name": "development",
+      "order": 1,
+      "promotesTo": "testing",
+      "providerRealism": "synthetic",
+      "mutationPosture": "unrestricted",
+      "requiresHumanApproval": false,
+      "requiresEvidenceClass": [
+        "implementation-conformance",
+        "realized-artefact"
+      ]
+    },
+    {
+      "name": "testing",
+      "order": 2,
+      "promotesTo": "staging",
+      "providerRealism": "composed",
+      "mutationPosture": "unrestricted",
+      "requiresHumanApproval": false,
+      "requiresEvidenceClass": [
+        "implementation-conformance",
+        "realized-artefact",
+        "runtime-observation"
+      ]
+    },
+    {
+      "name": "staging",
+      "order": 3,
+      "promotesTo": "production",
+      "providerRealism": "production-shaped",
+      "mutationPosture": "non-destructive-rehearsal",
+      "requiresHumanApproval": false,
+      "requiresEvidenceClass": [
+        "browser-render",
+        "deployment-observation",
+        "human-review",
+        "realized-artefact",
+        "runtime-observation"
+      ]
+    },
+    {
+      "name": "production",
+      "order": 4,
+      "promotesTo": null,
+      "providerRealism": "live",
+      "mutationPosture": "bounded-read-only",
+      "requiresHumanApproval": true,
+      "requiresEvidenceClass": [
+        "deployment-observation",
+        "release-provenance",
+        "runtime-observation"
+      ]
+    }
+  ],
+  "environments": [
+    {
+      "name": "ci",
+      "rung": "testing"
+    },
+    {
+      "name": "hermetic",
+      "rung": "development"
+    },
+    {
+      "name": "integrationtest",
+      "rung": "testing"
+    },
+    {
+      "name": "localdev",
+      "rung": "development"
+    },
+    {
+      "name": "productionlive",
+      "rung": "production"
+    },
+    {
+      "name": "productionshaped",
+      "rung": "staging"
+    },
+    {
+      "name": "staging",
+      "rung": "staging"
+    }
+  ],
+  "gates": [
+    {
+      "name": "development-to-testing",
+      "from": "development",
+      "to": "testing",
+      "requiresHumanApproval": false,
+      "refuses": [
+        "aggregate-without-constituents",
+        "evidence-environment-below-requirement",
+        "forced-promotion-attempted"
+      ]
+    },
+    {
+      "name": "staging-to-production",
+      "from": "staging",
+      "to": "production",
+      "requiresHumanApproval": true,
+      "refuses": [
+        "aggregate-without-constituents",
+        "evidence-environment-below-requirement",
+        "forced-promotion-attempted"
+      ]
+    },
+    {
+      "name": "testing-to-staging",
+      "from": "testing",
+      "to": "staging",
+      "requiresHumanApproval": false,
+      "refuses": [
+        "aggregate-without-constituents",
+        "evidence-environment-below-requirement",
+        "forced-promotion-attempted"
+      ]
+    }
+  ],
+  "required": [
+    {
+      "contract": "accessibilitya11ygate",
+      "declared": true
+    },
+    {
+      "contract": "auditofprivilegedaccess",
+      "declared": true
+    },
+    {
+      "contract": "backgroundworkersjobrunner",
+      "declared": true
+    },
+    {
+      "contract": "cdncachepolicy",
+      "declared": true
+    },
+    {
+      "contract": "configurationregistryandhistory",
+      "declared": true
+    },
+    {
+      "contract": "customdomainsdnsownershiptlscanonical",
+      "declared": true
+    },
+    {
+      "contract": "deploymentmechanism",
+      "declared": true
+    },
+    {
+      "contract": "edgeruntime",
+      "declared": true
+    },
+    {
+      "contract": "entitlementengine",
+      "declared": true
+    },
+    {
+      "contract": "environmentregistryandbootstrap",
+      "declared": true
+    },
+    {
+      "contract": "healthreadiness",
+      "declared": true
+    },
+    {
+      "contract": "i18nruntimeandvalidation",
+      "declared": true
+    },
+    {
+      "contract": "logsaggregationandtenantscopedsearch",
+      "declared": true
+    },
+    {
+      "contract": "metricsandtraces",
+      "declared": true
+    },
+    {
+      "contract": "networkingress",
+      "declared": true
+    },
+    {
+      "contract": "objectstorageandtenantprefixesandsignedurls",
+      "declared": true
+    },
+    {
+      "contract": "openapidrifthardgate",
+      "declared": true
+    },
+    {
+      "contract": "ratelimitingapi",
+      "declared": true
+    },
+    {
+      "contract": "releaseprovenance",
+      "declared": true
+    },
+    {
+      "contract": "responseheaderpolicy",
+      "declared": true
+    },
+    {
+      "contract": "rollbackmechanism",
+      "declared": true
+    },
+    {
+      "contract": "runtimesecretsmanagement",
+      "declared": true
+    },
+    {
+      "contract": "serverlessfunctionruntime",
+      "declared": true
+    },
+    {
+      "contract": "staticassetruntime",
+      "declared": true
+    }
+  ],
+  "notRequired": [
+    {
+      "contract": "abacpolicydecisionpoint",
+      "declared": true,
+      "reason": "There is no subject, resource or environment tuple to decide about."
+    },
+    {
+      "contract": "apikeyspersonalaccesstokens",
+      "declared": true,
+      "reason": "The agent surface verifies one operator-provisioned credential; there are no per-user keys to issue or rotate."
+    },
+    {
+      "contract": "authenticationplatform",
+      "declared": true,
+      "reason": "No user account exists. The journey requires anonymity, and the only credential in the product authorises a machine consumer, not a person."
+    },
+    {
+      "contract": "backupandrestore",
+      "declared": true,
+      "reason": "The only server-side state is a cache derived from its own key. Losing it costs time, never data, so backing it up would protect nothing."
+    },
+    {
+      "contract": "brandingandtheming",
+      "declared": true,
+      "reason": "The product has one identity. A user brands their artefact, not the application."
+    },
+    {
+      "contract": "compliancereportsaccessreviewsevidencepacks",
+      "declared": true,
+      "reason": "There is no access to review, because there are no accounts, no roles and no personal data. The audit record the product does keep is about machine requests to one surface and is modelled as its own capability."
+    },
+    {
+      "contract": "datagovernancecataloglineageclassificationpiidsrgdpr",
+      "declared": true,
+      "reason": "The product deliberately holds no personal data; payload content stays on the client. Consent is required for advertising and is modelled as its own capability."
+    },
+    {
+      "contract": "delegatedadministrationroles",
+      "declared": true,
+      "reason": "There is no administration to delegate. The two administrative actions the product has are performed by whoever controls the deployment, which is a deployment fact rather than a role in the product."
+    },
+    {
+      "contract": "enduserprofileandpreferencesselfservice",
+      "declared": true,
+      "reason": "Preferences are device-local, because there is no profile to hold them."
+    },
+    {
+      "contract": "eventbusdurablequeuesdlqredrive",
+      "declared": true,
+      "reason": "The one asynchronous path is a single render job addressed by identity, not a stream needing ordering, retry or a dead-letter path."
+    },
+    {
+      "contract": "historyreadmodelreadonlyprojection",
+      "declared": true,
+      "reason": "Nothing is written, so nothing has a history to project. The only server-side state is a regenerable cache whose past values carry no meaning."
+    },
+    {
+      "contract": "notificationdeliveryandpreferencesandchannels",
+      "declared": true,
+      "reason": "The product notifies nobody because it has nobody to notify. With no accounts there is no address to reach, no preference to respect and no channel to choose."
+    },
+    {
+      "contract": "pitrretentionlegalholddataresidency",
+      "declared": true,
+      "reason": "There is no retained personal data to hold, reside or recover to a point in time."
+    },
+    {
+      "contract": "productcatalogplansprices",
+      "declared": true,
+      "reason": "One free tier and one gated tier, declared as an entitlement rather than a catalogue."
+    },
+    {
+      "contract": "rbacrolesandpermissions",
+      "declared": true,
+      "reason": "With no accounts there are no roles to assign, and nothing in the product varies by who is asking. The one credential that exists authorises a machine to call one surface, which is an entitlement rather than a role."
+    },
+    {
+      "contract": "relationalstorageandmigrationsandrls",
+      "declared": true,
+      "reason": "The product stores nothing between requests. Creation is client-side and the only server state is a regenerable cache, so there is no schema to migrate and no row to isolate."
+    },
+    {
+      "contract": "scheduledjobsbuiltinontheeventsubstrate",
+      "declared": true,
+      "reason": "Nothing in the product runs on a clock. Every server-side action is triggered by a request, and the one background job is started by the request that exceeded the synchronous bound rather than by a schedule."
+    },
+    {
+      "contract": "searchandindexingproductsearch",
+      "declared": true,
+      "reason": "Search is over the product's own control surface and content, resolved on the client. No server index exists."
+    },
+    {
+      "contract": "suborganisations",
+      "declared": true,
+      "reason": "Nothing is organised into anything. There is no account tree, no parent-child relationship and no scope that a sub-organisation would narrow."
+    },
+    {
+      "contract": "subscriptionsinvoicespaymentmethodsdunning",
+      "declared": true,
+      "reason": "No billing runs inside the product; an entitlement arrives already paid for."
+    },
+    {
+      "contract": "supportmodebreakglassaccess",
+      "declared": true,
+      "reason": "There is no user data to break glass into. Payload content stays on the client and is never transmitted, so an emergency access path would reach nothing that belongs to anyone."
+    },
+    {
+      "contract": "supportticketscustomerhealthannouncements",
+      "declared": true,
+      "reason": "Support is a contact route on a static page. With no accounts there is no customer record to attach a ticket to, no health signal to compute and no audience to announce to."
+    },
+    {
+      "contract": "tenantcanonicaldomainsetunset",
+      "declared": true,
+      "reason": "The product has one canonical domain, set once, not per tenant."
+    },
+    {
+      "contract": "tenantdataimportexport",
+      "declared": true,
+      "reason": "No tenant data exists. Artefact export is a product capability and is not this."
+    },
+    {
+      "contract": "tenantdomainactivationauthclient",
+      "declared": true,
+      "reason": "No per-tenant authentication client exists, because there is no tenant and no authentication. The product serves one canonical domain and identifies nobody."
+    },
+    {
+      "contract": "tenantgroups",
+      "declared": true,
+      "reason": "There are no tenants, so there is nothing to group. Every visitor is anonymous and every API consumer is authorised by one operator-provisioned credential rather than by membership of anything."
+    },
+    {
+      "contract": "tenanthostidentityresolution",
+      "declared": true,
+      "reason": "One host resolves to one product. There is no mapping from an incoming hostname to a tenant identity because no such identity exists."
+    },
+    {
+      "contract": "tenantidentityrecordandfqdn",
+      "declared": true,
+      "reason": "There is no tenant identity record to hold, and no fully-qualified name is assigned per customer. The product has one name that belongs to the product."
+    },
+    {
+      "contract": "tenantisolationproof",
+      "declared": true,
+      "reason": "There is nothing to isolate, and claiming isolation over an empty set would be the emptiest possible proof."
+    },
+    {
+      "contract": "tenantlifecycleprovisionsuspenddeleteexport",
+      "declared": true,
+      "reason": "No tenant is provisioned, so none can be suspended, deleted or exported. The lifecycle this contract manages has no subject in a product where every visitor arrives with no prior state."
+    },
+    {
+      "contract": "tenantserviceclickthroughpolicy",
+      "declared": true,
+      "reason": "No per-tenant policy is presented, because there is no tenant to present it to. The policies the product does present are its own terms and privacy pages, served as localised static content."
+    },
+    {
+      "contract": "usagemeteringandmetereventingestion",
+      "declared": true,
+      "reason": "Nothing is metered. The tier is an entitlement that is either active or not, deliberately rather than incidentally: metering anonymous use would require identifying it."
+    },
+    {
+      "contract": "useridentityandtenantmembership",
+      "declared": true,
+      "reason": "There is no user record to belong to anything. The journey requires anonymity, so identity is not merely absent from the implementation, it is a product commitment the model would contradict."
+    },
+    {
+      "contract": "webhooksdeveloperfacing",
+      "declared": true,
+      "reason": "The API is request-response and holds no consumer registration. Nothing is delivered back because there is no consumer record to deliver to and no event that outlives its request."
+    },
+    {
+      "contract": "workflowenginescheduledjobsapprovals",
+      "declared": true,
+      "reason": "No product behaviour is a multi-step workflow. The one asynchronous path is a single render job addressed by its own identity, with no state machine, no approval step and nothing to resume."
+    }
+  ],
+  "bindings": [
+    {
+      "binding": "ci",
+      "environment": "ci",
+      "status": "bound",
+      "contracts": [
+        "deploymentmechanism",
+        "responseheaderpolicy",
+        "staticassetruntime"
+      ],
+      "unresolvedDecisions": 0,
+      "requiresExternalAuthority": null
+    },
+    {
+      "binding": "hermetic",
+      "environment": "hermetic",
+      "status": "bound",
+      "contracts": [
+        "edgeruntime",
+        "healthreadiness",
+        "networkingress",
+        "responseheaderpolicy",
+        "staticassetruntime"
+      ],
+      "unresolvedDecisions": 0,
+      "requiresExternalAuthority": null
+    },
+    {
+      "binding": "integrationtest",
+      "environment": "integrationtest",
+      "status": "bound",
+      "contracts": [
+        "auditofprivilegedaccess",
+        "objectstorageandtenantprefixesandsignedurls",
+        "ratelimitingapi",
+        "serverlessfunctionruntime"
+      ],
+      "unresolvedDecisions": 0,
+      "requiresExternalAuthority": null
+    },
+    {
+      "binding": "localdev",
+      "environment": "localdev",
+      "status": "bound",
+      "contracts": [
+        "networkingress",
+        "staticassetruntime"
+      ],
+      "unresolvedDecisions": 0,
+      "requiresExternalAuthority": null
+    },
+    {
+      "binding": "productionlive",
+      "environment": "productionlive",
+      "status": "unresolved",
+      "contracts": [
+        "backgroundworkersjobrunner",
+        "customdomainsdnsownershiptlscanonical",
+        "deploymentmechanism",
+        "edgeruntime",
+        "metricsandtraces",
+        "objectstorageandtenantprefixesandsignedurls",
+        "rollbackmechanism",
+        "runtimesecretsmanagement",
+        "serverlessfunctionruntime",
+        "staticassetruntime"
+      ],
+      "unresolvedDecisions": 7,
+      "requiresExternalAuthority": "operator"
+    },
+    {
+      "binding": "productionshaped",
+      "environment": "productionshaped",
+      "status": "unresolved",
+      "contracts": [
+        "cdncachepolicy",
+        "customdomainsdnsownershiptlscanonical",
+        "deploymentmechanism",
+        "edgeruntime",
+        "networkingress",
+        "objectstorageandtenantprefixesandsignedurls",
+        "rollbackmechanism",
+        "serverlessfunctionruntime",
+        "staticassetruntime"
+      ],
+      "unresolvedDecisions": 4,
+      "requiresExternalAuthority": "operator"
+    }
+  ],
+  "parityDispositions": [
+    {
+      "disposition": "localeparity",
+      "status": "required-unrealised",
+      "appliesToFacet": "architecturelocaleparity",
+      "openDecisions": 2
+    },
+    {
+      "disposition": "surfaceparity",
+      "status": "required-unrealised",
+      "appliesToFacet": "architecturesurfaceparity",
+      "openDecisions": 2
+    }
+  ],
+  "secrets": [
+    {
+      "requirement": "agent-surface-credential",
+      "resolver": "secretresolver",
+      "consequence": "The agent surface fails closed and admits nothing."
+    },
+    {
+      "requirement": "deploy-credential",
+      "resolver": "secretresolver",
+      "consequence": "No deployment can occur; the artefact is built and not moved."
+    },
+    {
+      "requirement": "geocoding-service-key",
+      "resolver": "secretresolver",
+      "consequence": "Place lookup refuses; manual coordinate entry stays fully usable."
+    },
+    {
+      "requirement": "telemetry-sink-key",
+      "resolver": "secretresolver",
+      "consequence": "Runtime failures are unobserved; the product itself is unaffected."
+    }
+  ],
+  "externalDecisions": [
+    {
+      "decision": "advertising-and-consent-accounts",
+      "secret": false,
+      "contract": "responseheaderpolicy",
+      "authority": "operator"
+    },
+    {
+      "decision": "error-reporting-project",
+      "secret": true,
+      "contract": "metricsandtraces",
+      "authority": "operator"
+    },
+    {
+      "decision": "infrastructure-model-join",
+      "secret": false,
+      "contract": "deploymentmechanism",
+      "authority": "operator"
+    },
+    {
+      "decision": "production-approval-authority",
+      "secret": false,
+      "contract": "staging-to-production",
+      "authority": "operator"
+    },
+    {
+      "decision": "production-deploy-credential",
+      "secret": true,
+      "contract": "deploymentmechanism",
+      "authority": "operator"
+    },
+    {
+      "decision": "production-hostname-and-zone",
+      "secret": false,
+      "contract": "customdomainsdnsownershiptlscanonical",
+      "authority": "operator"
+    },
+    {
+      "decision": "production-site-identifier",
+      "secret": false,
+      "contract": "deploymentmechanism",
+      "authority": "operator"
+    },
+    {
+      "decision": "production-site-owner",
+      "secret": false,
+      "contract": "deploymentmechanism",
+      "authority": "operator"
+    },
+    {
+      "decision": "staging-deploy-credential",
+      "secret": true,
+      "contract": "deploymentmechanism",
+      "authority": "operator"
+    },
+    {
+      "decision": "staging-hostname-posture",
+      "secret": false,
+      "contract": "networkingress",
+      "authority": "operator"
+    },
+    {
+      "decision": "staging-site-identifier",
+      "secret": false,
+      "contract": "deploymentmechanism",
+      "authority": "operator"
+    },
+    {
+      "decision": "staging-site-owner",
+      "secret": false,
+      "contract": "deploymentmechanism",
+      "authority": "operator"
+    }
+  ],
+  "capabilityDelivery": [
+    {
+      "capability": "abusecontrol",
+      "contracts": [
+        "networkingress"
+      ],
+      "ports": [],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "advertisingmonetisation",
+      "contracts": [
+        "responseheaderpolicy"
+      ],
+      "ports": [],
+      "evidencePosture": "ci"
+    },
+    {
+      "capability": "animatedartefact",
+      "contracts": [
+        "deploymentmechanism",
+        "healthreadiness"
+      ],
+      "ports": [
+        "objectstore",
+        "operationaljobport"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "asynchronousrendering",
+      "contracts": [
+        "deploymentmechanism",
+        "healthreadiness"
+      ],
+      "ports": [
+        "objectstore",
+        "operationaljobport"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "authenticatedserviceconsumption",
+      "contracts": [
+        "networkingress"
+      ],
+      "ports": [
+        "apiruntime",
+        "auditledger"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "bidirectionaltextsupport",
+      "contracts": [
+        "cdncachepolicy"
+      ],
+      "ports": [],
+      "evidencePosture": "ci"
+    },
+    {
+      "capability": "capabilitygallery",
+      "contracts": [
+        "staticassetruntime"
+      ],
+      "ports": [],
+      "evidencePosture": "ci"
+    },
+    {
+      "capability": "communitytranslationcontribution",
+      "contracts": [
+        "networkingress"
+      ],
+      "ports": [],
+      "evidencePosture": "ci"
+    },
+    {
+      "capability": "crawlablepresentation",
+      "contracts": [
+        "edgeruntime",
+        "staticassetruntime"
+      ],
+      "ports": [],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "deterministicoutput",
+      "contracts": [
+        "cdncachepolicy"
+      ],
+      "ports": [
+        "objectstore"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "geolocationassistance",
+      "contracts": [
+        "networkingress"
+      ],
+      "ports": [
+        "apiruntime"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "httpapidelivery",
+      "contracts": [
+        "cdncachepolicy",
+        "networkingress",
+        "staticassetruntime"
+      ],
+      "ports": [
+        "apiruntime"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "installableoffline",
+      "contracts": [
+        "staticassetruntime"
+      ],
+      "ports": [],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "interfacelocalisation",
+      "contracts": [
+        "cdncachepolicy"
+      ],
+      "ports": [],
+      "evidencePosture": "ci"
+    },
+    {
+      "capability": "localenegotiation",
+      "contracts": [
+        "cdncachepolicy"
+      ],
+      "ports": [],
+      "evidencePosture": "ci"
+    },
+    {
+      "capability": "localetypography",
+      "contracts": [
+        "cdncachepolicy"
+      ],
+      "ports": [],
+      "evidencePosture": "ci"
+    },
+    {
+      "capability": "localisedstaticcontent",
+      "contracts": [
+        "staticassetruntime"
+      ],
+      "ports": [],
+      "evidencePosture": "ci"
+    },
+    {
+      "capability": "mcpdelivery",
+      "contracts": [
+        "networkingress"
+      ],
+      "ports": [
+        "apiruntime",
+        "auditledger"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "multilingualdiscoverability",
+      "contracts": [
+        "edgeruntime",
+        "staticassetruntime"
+      ],
+      "ports": [],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "outputrendering",
+      "contracts": [
+        "cdncachepolicy",
+        "networkingress",
+        "staticassetruntime"
+      ],
+      "ports": [
+        "apiruntime"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "payloadconfidentiality",
+      "contracts": [
+        "responseheaderpolicy"
+      ],
+      "ports": [],
+      "evidencePosture": "hermetic"
+    },
+    {
+      "capability": "performancebudget",
+      "contracts": [
+        "healthreadiness",
+        "releaseprovenance"
+      ],
+      "ports": [
+        "observabilitysink"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "policyboundarycontrol",
+      "contracts": [
+        "configurationregistryandhistory"
+      ],
+      "ports": [],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "programmaticgeneration",
+      "contracts": [
+        "cdncachepolicy",
+        "networkingress",
+        "staticassetruntime"
+      ],
+      "ports": [
+        "apiruntime"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "qrartefactcreation",
+      "contracts": [
+        "cdncachepolicy",
+        "networkingress",
+        "staticassetruntime"
+      ],
+      "ports": [
+        "apiruntime",
+        "auditledger"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "qrartwork",
+      "contracts": [
+        "networkingress"
+      ],
+      "ports": [
+        "apiruntime",
+        "auditledger"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "qrdecoding",
+      "contracts": [
+        "networkingress"
+      ],
+      "ports": [],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "regulatoryconsent",
+      "contracts": [
+        "responseheaderpolicy"
+      ],
+      "ports": [],
+      "evidencePosture": "hermetic"
+    },
+    {
+      "capability": "remoteassetsafety",
+      "contracts": [
+        "networkingress"
+      ],
+      "ports": [],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "renderedartefactcaching",
+      "contracts": [
+        "cdncachepolicy"
+      ],
+      "ports": [
+        "objectstore"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "responsivewebdelivery",
+      "contracts": [
+        "cdncachepolicy",
+        "customdomainsdnsownershiptlscanonical",
+        "networkingress",
+        "responseheaderpolicy",
+        "staticassetruntime"
+      ],
+      "ports": [],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "runtimeobservability",
+      "contracts": [
+        "healthreadiness",
+        "releaseprovenance"
+      ],
+      "ports": [
+        "observabilitysink"
+      ],
+      "evidencePosture": "productionshaped"
+    },
+    {
+      "capability": "selfhostedoperation",
+      "contracts": [
+        "deploymentmechanism",
+        "healthreadiness",
+        "releaseprovenance"
+      ],
+      "ports": [
+        "configlayerprovider",
+        "secretresolver"
+      ],
+      "evidencePosture": "productionlive"
+    },
+    {
+      "capability": "shareablerepresentation",
+      "contracts": [
+        "staticassetruntime"
+      ],
+      "ports": [],
+      "evidencePosture": "hermetic"
+    },
+    {
+      "capability": "visualcustomisation",
+      "contracts": [
+        "networkingress"
+      ],
+      "ports": [
+        "apiruntime",
+        "auditledger"
+      ],
+      "evidencePosture": "productionshaped"
+    }
+  ],
+  "nonClaims": [
+    "A projection is not authority. If this disagrees with the graph, the graph is right and this is stale.",
+    "A declared requirement is not a provisioned resource, and a complete requirement set with no environment binding delivers nothing.",
+    "No secret value appears here. A secret is a name, a resolver and a consequence."
+  ]
+}
