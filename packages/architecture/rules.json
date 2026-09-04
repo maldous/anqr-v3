@@ -389,7 +389,7 @@
     {
       "name": "assurance-and-test-tooling",
       "scope": [
-        "packages/architecture/ and packages/artefact/tests/ in the ANQR product repository."
+        "packages/architecture/, packages/artefact/tests/ and tests/architecture/ in the ANQR product repository."
       ],
       "forbids": [
         "No module of a declared architectural component may import from packages/architecture/ or from any test location. Assurance code observes the architecture and must never become something the architecture depends on."
