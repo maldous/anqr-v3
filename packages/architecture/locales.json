@@ -1,0 +1,457 @@
+{
+  "schema": "urn:anqr:locale-registry:1",
+  "referenceCode": "en-GB",
+  "localeCount": 86,
+  "rightToLeftCount": 7,
+  "locales": [
+    {
+      "code": "af",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "am",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ar",
+      "direction": "rtl",
+      "reference": false
+    },
+    {
+      "code": "az-AZ",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "be",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "bg",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "bn-BD",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ca",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "cs-CZ",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "da-DK",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "de-DE",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "el-GR",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "en-AU",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "en-CA",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "en-GB",
+      "direction": "ltr",
+      "reference": true
+    },
+    {
+      "code": "en-IN",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "en-SG",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "en-US",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "en-ZA",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "es-419",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "es-ES",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "es-US",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "et",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "eu-ES",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "fa",
+      "direction": "rtl",
+      "reference": false
+    },
+    {
+      "code": "fa-AE",
+      "direction": "rtl",
+      "reference": false
+    },
+    {
+      "code": "fa-AF",
+      "direction": "rtl",
+      "reference": false
+    },
+    {
+      "code": "fa-IR",
+      "direction": "rtl",
+      "reference": false
+    },
+    {
+      "code": "fi-FI",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "fil",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "fr-CA",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "fr-FR",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "gl-ES",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "gu",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "hi-IN",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "hr",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "hu-HU",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "hy-AM",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "id",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "is-IS",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "it-IT",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "iw-IL",
+      "direction": "rtl",
+      "reference": false
+    },
+    {
+      "code": "ja-JP",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ka-GE",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "kk",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "km-KH",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "kn-IN",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ko-KR",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ky-KG",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "lo-LA",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "lt",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "lv",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "mk-MK",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ml-IN",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "mn-MN",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "mr-IN",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ms",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ms-MY",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "my-MM",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ne-NP",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "nl-NL",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "no-NO",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "pa",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "pl-PL",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "pt-BR",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "pt-PT",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ro",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ru-RU",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "si-LK",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "sk",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "sl",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "sq",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "sr",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "sv-SE",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "sw",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ta-IN",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "te-IN",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "th",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "tr-TR",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "uk",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "ur",
+      "direction": "rtl",
+      "reference": false
+    },
+    {
+      "code": "vi",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "zh-CN",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "zh-HK",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "zh-TW",
+      "direction": "ltr",
+      "reference": false
+    },
+    {
+      "code": "zu",
+      "direction": "ltr",
+      "reference": false
+    }
+  ],
+  "parityObligations": [
+    {
+      "name": "interface-strings",
+      "scope": "interface-strings",
+      "referenceCode": "en-GB",
+      "requirement": "Every claimed locale carries the reference locale's complete interface key set. A missing key renders as an English fallback or as a raw key, and both are defects a user sees."
+    },
+    {
+      "name": "static-content",
+      "scope": "static-content",
+      "referenceCode": "en-GB",
+      "requirement": "Every claimed locale carries the guide, examples and legal pages, because a half-translated product is worse than an untranslated one for trust."
+    }
+  ],
+  "nonClaims": [
+    "This registry is the claimed language denominator, not evidence that any locale is translated.",
+    "Parity is decided by key set against the reference locale. A resource of the right size proves nothing about coverage.",
+    "A prepared locale carrying no translated value is honestly untranslated; it is never reported as satisfied."
+  ]
+}

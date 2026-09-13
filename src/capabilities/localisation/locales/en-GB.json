@@ -1,0 +1,27 @@
+{
+  "code": "en-GB",
+  "direction": "ltr",
+  "translations": {
+    "artefactPreview.label": "Artefact preview",
+    "creation.choiceInvalid": "Correct the highlighted choice first.",
+    "creation.describeStep": "Describe it",
+    "creation.emptyPreview": "No artefact yet.",
+    "creation.failureBlocking": "Address the failure above first.",
+    "creation.payloadRequired": "Enter a payload first.",
+    "creation.pendingArtefact": "The artefact is still being produced.",
+    "creation.previewHint": "The code appears here as you type.",
+    "creation.seeStep": "See it",
+    "creation.title": "Make a scannable code",
+    "encodingOptions.errorCorrection": "Error correction",
+    "encodingOptions.foregroundColour": "Foreground colour",
+    "encodingOptions.hide": "Hide encoding options",
+    "encodingOptions.outputFormat": "Output format",
+    "encodingOptions.show": "Show encoding options",
+    "encodingOptions.symbolVersion": "Symbol version",
+    "exportAction.producing": "Producing the file.",
+    "exportAction.ready": "Ready to export.",
+    "machine.payloadPrompt": "Enter what the code should carry.",
+    "payloadField.hint": "A link, some text, or anything else you want scanned back out.",
+    "payloadField.prompt": "What should the code carry?"
+  }
+}

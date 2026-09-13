@@ -1,0 +1,27 @@
+{
+  "code": "sw",
+  "direction": "ltr",
+  "translations": {
+    "artefactPreview.label": null,
+    "creation.choiceInvalid": null,
+    "creation.describeStep": null,
+    "creation.emptyPreview": null,
+    "creation.failureBlocking": null,
+    "creation.payloadRequired": null,
+    "creation.pendingArtefact": null,
+    "creation.previewHint": null,
+    "creation.seeStep": null,
+    "creation.title": null,
+    "encodingOptions.errorCorrection": null,
+    "encodingOptions.foregroundColour": null,
+    "encodingOptions.hide": null,
+    "encodingOptions.outputFormat": null,
+    "encodingOptions.show": null,
+    "encodingOptions.symbolVersion": null,
+    "exportAction.producing": null,
+    "exportAction.ready": null,
+    "machine.payloadPrompt": null,
+    "payloadField.hint": null,
+    "payloadField.prompt": null
+  }
+}
