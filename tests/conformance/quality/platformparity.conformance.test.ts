@@ -9,7 +9,7 @@ test("architecturesurfaceparity", () => {
   const specification: capability.ArtefactSpecification = {
     name: "menu-artefact",
     mediaType: "text/plain",
-    payload: "https://paperly.example/menu\r\nline two",
+    payload: "https://anqr.example/menu\r\nline two",
   };
 
   const realisations = capability.realiseOnAllSurfaces(specification);
