@@ -3,10 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test 'tests/**/*.test.ts'",
     "test:conformance": "node --test 'tests/conformance/**/*.conformance.test.ts'"
+  },
+  "packageManager": "npm@11.13.0",
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "5.9.3"
   }
 }
