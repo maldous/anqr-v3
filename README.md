@@ -22,4 +22,8 @@ npm test
 npm run test:conformance
 ```
 
-See [`package.json`](package.json) for the exact commands and [`tsconfig.json`](tsconfig.json) for compiler settings. This repository is a product implementation, not a standalone deployment of the ANQR web application.
+Use the pinned Node/npm versions and locked installation in [`docs/toolchain.md`](docs/toolchain.md). See [`package.json`](package.json) for the exact commands and [`tsconfig.json`](tsconfig.json) for compiler settings. These source checks use this checkout and its development dependencies; they require no UIF, CIX, OffMenu or Circular Quay checkout or running service. The USF links above preserve historical foundation context.
+
+UIF can provide optional parent operational integration and remains responsible for the shared Stokowski, Windmill, LangChain, GitHub and Linear integration across Foo local and durable cloud. Using that integration retains its ownership and admission controls; it does not make UIF a prerequisite for ANQR's local source checks.
+
+This checkout provides capability source and conformance tests, with no application build, start or deployment command. It is not a standalone deployment of the ANQR web application. Product source-baseline and rights decisions remain unresolved; source checks do not establish working browser/API/MCP journeys or staging/production readiness.
