@@ -56,6 +56,11 @@ export const SIZE_LIMITS: Readonly<Record<PayloadSizeClass, number>> = {
 } as const;
 
 // --- Helper functions (pure) ---
+const arrayBufferByteLength = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'byteLength')!.get!;
+const sharedArrayBufferByteLength = Object.getOwnPropertyDescriptor(SharedArrayBuffer.prototype, 'byteLength')!.get!;
+const dataViewByteLength = Object.getOwnPropertyDescriptor(DataView.prototype, 'byteLength')!.get!;
+const typedArrayByteLength = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Uint8Array.prototype), 'byteLength')!.get!;
+
 /**
  * Audits a payload request without exposing its content.
  * Returns a {@link PayloadAuditRecord} containing only kind and sizeClass.
@@ -81,11 +86,48 @@ function validateSize(request: PayloadRequest): PayloadError | null {
       message: `Unknown size class '${request.sizeClass}'.`,
     };
   }
-  // Assume the payload has a byteLength property for binary data or use JSON string length as a fallback.
-  const actualSize =
-    typeof (request.content as any).byteLength === 'number'
-      ? (request.content as any).byteLength
-      : Buffer.byteLength(JSON.stringify(request.content), 'utf8');
+  // Binary containers have an intrinsic byte length. Other content uses the
+  // existing JSON representation; an unavailable size must produce a refusal.
+  let actualSize: number;
+  try {
+    const content = request.content;
+    let bufferSize: number | undefined;
+    // Intrinsic getters validate the internal brand independently of a
+    // caller-controlled prototype or another realm's constructors.
+    for (const getter of [arrayBufferByteLength, sharedArrayBufferByteLength]) {
+      try {
+        bufferSize = getter.call(content);
+        break;
+      } catch {
+        // Not this buffer brand; try the next intrinsic.
+      }
+    }
+    if (bufferSize !== undefined) {
+      actualSize = bufferSize;
+    } else if (ArrayBuffer.isView(content)) {
+      try {
+        actualSize = dataViewByteLength.call(content);
+      } catch {
+        actualSize = typedArrayByteLength.call(content);
+      }
+      if (typeof actualSize !== 'number') {
+        throw new TypeError('Binary view size is unavailable.');
+      }
+    } else {
+      const serialised = JSON.stringify(content);
+      if (serialised === undefined) {
+        throw new TypeError('Payload has no JSON representation.');
+      }
+      actualSize = Buffer.byteLength(serialised, 'utf8');
+    }
+  } catch {
+    return {
+      success: false,
+      rule: 'payloadSizeUnavailable',
+      bound: 'finite binary or JSON byte size',
+      message: 'Payload size could not be determined.',
+    };
+  }
   if (actualSize > limit) {
     return {
       success: false,
