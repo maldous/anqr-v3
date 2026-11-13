@@ -85,10 +85,10 @@ export function createArtefact(
   if (!payload || payload.trim() === '') {
     throw new Error('Artefact payload must be a non-empty string.');
   }
-  if (!Array.isArray(options)) {
+  if (!Array.isArray(options) || !options.every(isOptionGroup)) {
     throw new Error('Artefact options must be an array of OptionGroup.');
   }
-  if (typeof embedOptions !== 'object' || embedOptions === null) {
+  if (!isRecord(embedOptions)) {
     throw new Error('Artefact embedOptions must be an object.');
   }
 
@@ -120,7 +120,7 @@ export function createOptionGroup(
   if (!name || name.trim() === '') {
     throw new Error('OptionGroup name must be a non-empty string.');
   }
-  if (typeof parameters !== 'object' || parameters === null) {
+  if (!isRecord(parameters)) {
     throw new Error('OptionGroup parameters must be an object.');
   }
   return { name, parameters };
@@ -130,7 +130,7 @@ export function createOptionGroup(
  * Creates EmbedOptions from a parameters object.
  */
 export function createEmbedOptions(parameters: Record<string, unknown> = {}): EmbedOptions {
-  if (typeof parameters !== 'object' || parameters === null) {
+  if (!isRecord(parameters)) {
     throw new Error('EmbedOptions must be an object.');
   }
   return { ...parameters };
@@ -157,7 +157,7 @@ export function toShareableArtefact(artefact: Artefact): ShareableArtefact {
  * The representation is self-contained and requires no server state.
  */
 export function serializeShareRepresentation(artefact: ShareableArtefact): ShareRepresentation {
-  return JSON.stringify(artefact);
+  return JSON.stringify(toShareableArtefact(artefact));
 }
 
 /**
@@ -171,13 +171,24 @@ function isShareableArtefact(value: unknown): value is ShareableArtefact {
   if (typeof obj.payload !== 'string' || obj.payload.trim() === '') {
     return false;
   }
-  if (!Array.isArray(obj.options)) {
+  if (!Array.isArray(obj.options) || !obj.options.every(isOptionGroup)) {
     return false;
   }
-  if (typeof obj.embedOptions !== 'object' || obj.embedOptions === null) {
+  if (!isRecord(obj.embedOptions)) {
     return false;
   }
   return true;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isOptionGroup(value: unknown): value is OptionGroup {
+  return isRecord(value)
+    && typeof value.name === 'string'
+    && value.name.trim() !== ''
+    && isRecord(value.parameters);
 }
 
 /**
@@ -188,11 +199,10 @@ export function parseShareRepresentation(representation: ShareRepresentation): P
   let parsed: unknown;
   try {
     parsed = JSON.parse(representation);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'Invalid JSON';
+  } catch {
     return {
       success: false,
-      error: { message, code: 'PARSE_FAILED' },
+      error: { message: 'Share representation is not valid JSON.', code: 'PARSE_FAILED' },
       defaultArtefact: DEFAULT_SHAREABLE_ARTEFACT,
     };
   }
@@ -208,7 +218,7 @@ export function parseShareRepresentation(representation: ShareRepresentation): P
     };
   }
 
-  return { success: true, artefact: parsed };
+  return { success: true, artefact: toShareableArtefact(parsed) };
 }
 
 // --- Round-trip validation ---

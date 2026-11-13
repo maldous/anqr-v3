@@ -214,3 +214,50 @@ test("shareablerepresentationvalidation", () => {
     /Round-trip failed/
   );
 });
+
+test("share boundaries discard top-level producer metadata", () => {
+  const producer = {
+    payload: "shared-payload", options: [], embedOptions: {},
+    identity: { userId: "private-user" },
+    session: { sessionId: "private-session" },
+    account: { accountId: "private-account" },
+    toJSON() { return { identity: this.identity }; },
+  };
+  const representation = capability.serializeShareRepresentation(producer);
+  assert.deepEqual(JSON.parse(representation), {
+    payload: producer.payload, options: [], embedOptions: {},
+  });
+  // An incoming producer object need not have passed through our serializer.
+  const parsed = capability.parseShareRepresentation(JSON.stringify({
+    ...producer, toJSON: undefined,
+  }));
+  assert.equal(parsed.success, true);
+  if (parsed.success) {
+    assert.deepEqual(Object.keys(parsed.artefact).sort(), ["embedOptions", "options", "payload"]);
+    assert(!JSON.stringify(parsed.artefact).includes("private-"));
+  }
+});
+
+test("share parser rejects malformed option groups and object fields", () => {
+  for (const group of [null, [], "group", {}, { name: "" , parameters: {} },
+    { name: "view", parameters: null }, { name: "view", parameters: [] }]) {
+    const result = capability.parseShareRepresentation(JSON.stringify({
+      payload: "payload", options: [group], embedOptions: {},
+    }));
+    assert.equal(result.success, false);
+    if (!result.success) assert.equal(result.error.code, "INVALID_STRUCTURE");
+  }
+  const result = capability.parseShareRepresentation(JSON.stringify({
+    payload: "payload", options: [], embedOptions: [],
+  }));
+  assert.equal(result.success, false);
+});
+
+test("share parser does not expose malformed input in errors", () => {
+  const result = capability.parseShareRepresentation('private-sharing-content {');
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.equal(result.error.code, "PARSE_FAILED");
+    assert(!result.error.message.includes("private-sharing-content"));
+  }
+});
