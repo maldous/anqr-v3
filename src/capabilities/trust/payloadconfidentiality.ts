@@ -91,14 +91,28 @@ function validateSize(request: PayloadRequest): PayloadError | null {
   let actualSize: number;
   try {
     const content = request.content;
-    if (content instanceof ArrayBuffer) {
-      actualSize = arrayBufferByteLength.call(content);
-    } else if (content instanceof SharedArrayBuffer) {
-      actualSize = sharedArrayBufferByteLength.call(content);
+    let bufferSize: number | undefined;
+    // Intrinsic getters validate the internal brand independently of a
+    // caller-controlled prototype or another realm's constructors.
+    for (const getter of [arrayBufferByteLength, sharedArrayBufferByteLength]) {
+      try {
+        bufferSize = getter.call(content);
+        break;
+      } catch {
+        // Not this buffer brand; try the next intrinsic.
+      }
+    }
+    if (bufferSize !== undefined) {
+      actualSize = bufferSize;
     } else if (ArrayBuffer.isView(content)) {
-      actualSize = content instanceof DataView
-        ? dataViewByteLength.call(content)
-        : typedArrayByteLength.call(content);
+      try {
+        actualSize = dataViewByteLength.call(content);
+      } catch {
+        actualSize = typedArrayByteLength.call(content);
+      }
+      if (typeof actualSize !== 'number') {
+        throw new TypeError('Binary view size is unavailable.');
+      }
     } else {
       const serialised = JSON.stringify(content);
       if (serialised === undefined) {
