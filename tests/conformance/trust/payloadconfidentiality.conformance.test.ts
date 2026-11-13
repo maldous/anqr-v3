@@ -104,3 +104,41 @@ test("payloadconfidentialityvalidation", () => {
     assert(!errorSerialised.includes("xxxx"));
   }
 });
+
+test("payloadconfidentiality rejects unavailable sizes without echoing content", () => {
+  const circular: Record<string, unknown> = { secret: "private-payload" };
+  circular.self = circular;
+  const throwing = { toJSON() { throw new Error("private-payload"); } };
+  for (const content of [undefined, Symbol("private-payload"), () => "private-payload", 1n, circular, throwing]) {
+    const outcome = capability.processPayload(
+      { kind: "json", sizeClass: "small", content }, capability.auditPayload
+    );
+    assert.equal(outcome.success, false);
+    if (!outcome.success) {
+      assert.equal(outcome.rule, "payloadSizeUnavailable");
+      assert(!JSON.stringify(outcome).includes("private-payload"));
+    }
+  }
+});
+
+test("payloadconfidentiality measures actual content rather than a supplied byteLength", () => {
+  const outcome = capability.processPayload({
+    kind: "json", sizeClass: "small",
+    content: { byteLength: 0, secret: "x".repeat(1025) },
+  }, capability.auditPayload);
+  assert.equal(outcome.success, false);
+  if (!outcome.success) assert.equal(outcome.rule, "sizeBoundExceeded");
+  for (const content of [new ArrayBuffer(1025), new SharedArrayBuffer(1025), new Uint8Array(1025), new DataView(new ArrayBuffer(1025))]) {
+    Object.defineProperty(content, "byteLength", { value: 0 });
+    const oversized = capability.processPayload(
+      { kind: "binary", sizeClass: "small", content }, capability.auditPayload
+    );
+    assert.equal(oversized.success, false);
+    if (!oversized.success) assert.equal(oversized.rule, "sizeBoundExceeded");
+  }
+  for (const content of [null, new ArrayBuffer(100), new SharedArrayBuffer(100), new Uint8Array(100), new DataView(new ArrayBuffer(100))]) {
+    assert.equal(capability.processPayload(
+      { kind: "binary", sizeClass: "small", content }, capability.auditPayload
+    ).success, true);
+  }
+});

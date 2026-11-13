@@ -56,6 +56,11 @@ export const SIZE_LIMITS: Readonly<Record<PayloadSizeClass, number>> = {
 } as const;
 
 // --- Helper functions (pure) ---
+const arrayBufferByteLength = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'byteLength')!.get!;
+const sharedArrayBufferByteLength = Object.getOwnPropertyDescriptor(SharedArrayBuffer.prototype, 'byteLength')!.get!;
+const dataViewByteLength = Object.getOwnPropertyDescriptor(DataView.prototype, 'byteLength')!.get!;
+const typedArrayByteLength = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Uint8Array.prototype), 'byteLength')!.get!;
+
 /**
  * Audits a payload request without exposing its content.
  * Returns a {@link PayloadAuditRecord} containing only kind and sizeClass.
@@ -81,11 +86,34 @@ function validateSize(request: PayloadRequest): PayloadError | null {
       message: `Unknown size class '${request.sizeClass}'.`,
     };
   }
-  // Assume the payload has a byteLength property for binary data or use JSON string length as a fallback.
-  const actualSize =
-    typeof (request.content as any).byteLength === 'number'
-      ? (request.content as any).byteLength
-      : Buffer.byteLength(JSON.stringify(request.content), 'utf8');
+  // Binary containers have an intrinsic byte length. Other content uses the
+  // existing JSON representation; an unavailable size must produce a refusal.
+  let actualSize: number;
+  try {
+    const content = request.content;
+    if (content instanceof ArrayBuffer) {
+      actualSize = arrayBufferByteLength.call(content);
+    } else if (content instanceof SharedArrayBuffer) {
+      actualSize = sharedArrayBufferByteLength.call(content);
+    } else if (ArrayBuffer.isView(content)) {
+      actualSize = content instanceof DataView
+        ? dataViewByteLength.call(content)
+        : typedArrayByteLength.call(content);
+    } else {
+      const serialised = JSON.stringify(content);
+      if (serialised === undefined) {
+        throw new TypeError('Payload has no JSON representation.');
+      }
+      actualSize = Buffer.byteLength(serialised, 'utf8');
+    }
+  } catch {
+    return {
+      success: false,
+      rule: 'payloadSizeUnavailable',
+      bound: 'finite binary or JSON byte size',
+      message: 'Payload size could not be determined.',
+    };
+  }
   if (actualSize > limit) {
     return {
       success: false,
