@@ -238,6 +238,21 @@ test("share boundaries discard top-level producer metadata", () => {
   }
 });
 
+test("artefact creation retains all producer references until sharing", () => {
+  const identity = { userId: "private-user" };
+  const session = { sessionId: "private-session" };
+  const account = { accountId: "private-account" };
+  const artefact = capability.createArtefact("payload", [], {}, identity, session, account);
+  assert.deepEqual({ identity: artefact.identity, session: artefact.session, account: artefact.account },
+    { identity, session, account });
+  const shared = capability.toShareableArtefact(artefact);
+  assert.deepEqual(Object.keys(shared).sort(), ["embedOptions", "options", "payload"]);
+  const representation = capability.serializeShareRepresentation(artefact);
+  assert.deepEqual(JSON.parse(representation), { payload: "payload", options: [], embedOptions: {} });
+  assert.deepEqual({ identity: artefact.identity, session: artefact.session, account: artefact.account },
+    { identity, session, account });
+});
+
 test("share parser rejects malformed option groups and object fields", () => {
   for (const group of [null, [], "group", {}, { name: "" , parameters: {} },
     { name: "view", parameters: null }, { name: "view", parameters: [] }]) {
