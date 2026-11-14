@@ -98,16 +98,12 @@ export function createArtefact(
     embedOptions,
   };
 
-  if (identity) {
-    return { ...base, identity };
-  }
-  if (session) {
-    return { ...base, session };
-  }
-  if (account) {
-    return { ...base, account };
-  }
-  return base;
+  return {
+    ...base,
+    ...(identity ? { identity } : {}),
+    ...(session ? { session } : {}),
+    ...(account ? { account } : {}),
+  };
 }
 
 /**
