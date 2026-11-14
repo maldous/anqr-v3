@@ -20,6 +20,8 @@ export interface Segment {
   readonly mode: SegmentMode;
   readonly characterCount: number;
   readonly bits: readonly number[];
+  /** UTF-8 ECI for non-ASCII byte payloads; ASCII keeps its existing encoding. */
+  readonly eci?: 26;
 }
 
 class BitBuffer {
@@ -78,11 +80,12 @@ export function makeSegment(text: string, mode: SegmentMode = selectMode(text)):
   }
   const bytes = new TextEncoder().encode(text);
   for (const byte of bytes) buffer.append(byte, 8);
-  return { mode, characterCount: bytes.length, bits: buffer.toBits() };
+  return { mode, characterCount: bytes.length, bits: buffer.toBits(),
+    ...(bytes.some((byte) => byte >= 0x80) ? { eci: 26 as const } : {}) };
 }
 
-function segmentBitLength(segment: Segment, version: number): number {
-  return 4 + characterCountBits(version, segment.mode) + segment.bits.length;
+export function segmentBitLength(segment: Segment, version: number): number {
+  return (segment.eci === undefined ? 0 : 12) + 4 + characterCountBits(version, segment.mode) + segment.bits.length;
 }
 
 /** Smallest version at or above `minimumVersion` that holds the segment. */
@@ -100,6 +103,11 @@ export function dataCodewordStream(segment: Segment, version: number, level: Err
   if (required > capacityBits) throw new Error("QR_PAYLOAD_TOO_LARGE");
 
   const buffer = new BitBuffer();
+  if (segment.eci !== undefined) {
+    if (segment.mode !== "byte" || segment.eci !== 26) throw new Error("QR_ECI_UNSUPPORTED");
+    buffer.append(7, 4);
+    buffer.append(segment.eci, 8);
+  }
   buffer.append(MODE_INDICATOR[segment.mode], 4);
   buffer.append(segment.characterCount, characterCountBits(version, segment.mode));
   buffer.appendBits(segment.bits);

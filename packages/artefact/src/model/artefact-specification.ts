@@ -1,5 +1,5 @@
 import { dataCodewords, ERROR_CORRECTION_LEVELS, MAX_VERSION, MIN_VERSION, type ErrorCorrectionLevel } from "../qr/spec.ts";
-import { makeSegment, selectMode } from "../qr/encode.ts";
+import { makeSegment, segmentBitLength, selectMode } from "../qr/encode.ts";
 
 // The admissible join.
 //
@@ -173,8 +173,7 @@ export function joinArtefactSpecification(supplied: SuppliedValues): JoinResult 
     // the one asked for, which is a different artefact.
     if (symbolVersion !== "auto") {
       const segment = makeSegment(payload, selectMode(payload));
-      const headerBits = 4 + (symbolVersion <= 9 ? 8 : 16);
-      const requiredBits = segment.mode === "byte" ? headerBits + segment.bits.length : 4 + 14 + segment.bits.length;
+      const requiredBits = segmentBitLength(segment, symbolVersion);
       const capacityBits = dataCodewords(symbolVersion, level) * 8;
       if (requiredBits > capacityBits) {
         refusals.push({

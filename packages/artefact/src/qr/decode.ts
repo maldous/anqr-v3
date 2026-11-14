@@ -135,7 +135,14 @@ class BitReader {
 
 function decodeSegments(data: Uint8Array, version: number): { text: string; mode: DecodedSymbol["mode"] } {
   const reader = new BitReader(data);
-  const mode = reader.read(4);
+  let mode = reader.read(4);
+  if (mode === 7) {
+    // This codec supports one text segment and the UTF-8 ECI assignment only.
+    // Reject other assignments rather than interpreting their bytes as UTF-8.
+    if (reader.read(8) !== 26) throw new Error("QR_ECI_UNSUPPORTED");
+    mode = reader.read(4);
+    if (mode !== 4) throw new Error("QR_ECI_BYTE_MODE_REQUIRED");
+  }
 
   if (mode === 1) {
     const count = reader.read(characterCountBits(version, "numeric"));
