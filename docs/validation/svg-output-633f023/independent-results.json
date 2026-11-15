@@ -1,0 +1,265 @@
+{
+  "source": "633f023d46affc185031aaf5ab7398874e067fe4",
+  "checked_utc": "2026-11-15T06:34:37.791136+00:00",
+  "node": "v24.16.0",
+  "rasterizer": "Inkscape1.4 (e7c3feb100,2024-10-09), page export at default96dpi",
+  "decoder": "zxing-cpp3.1.1",
+  "pillow": "13.0.0",
+  "total": 12,
+  "passed": 12,
+  "results": [
+    {
+      "id": "L-ascii",
+      "requested_level": "L",
+      "svg_sha256": "c9292f6350bc6302592c049e852883545762407e42fb12112c980adcc9e65e93",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6234): WARNING **: 06:34:36.708: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\nFontconfig error: No writable cache directories\n\n** (inkscape:6234): WARNING **: 06:34:37.090: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/L-ascii.raster.png",
+      "raster_sha256": "9dcb60da34c887a46c4556f2de83a7b2ed9d984ffa3f4c2ca61c7f9419a4058d",
+      "dimensions": [
+        198,
+        198
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "414e515220494e444550454e44454e5420504e47203132333435",
+      "text": "ANQR INDEPENDENT PNG 12345",
+      "error_correction_level": "L",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    },
+    {
+      "id": "L-multibyte",
+      "requested_level": "L",
+      "svg_sha256": "712dd417129b3f33e965c70d503dbc31e2adb1201b2094e2de2e691f08afea25",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6235): WARNING **: 06:34:36.703: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\n\n** (inkscape:6235): WARNING **: 06:34:37.085: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/L-multibyte.raster.png",
+      "raster_sha256": "db84492353cf38829cd66955cff1dc0e22291d144317a8dc933b9536230e821a",
+      "dimensions": [
+        174,
+        174
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "636166c3a920e69db1e4baac",
+      "text": "café 東京",
+      "error_correction_level": "L",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    },
+    {
+      "id": "L-emoji",
+      "requested_level": "L",
+      "svg_sha256": "fa19eb261f399e7040f20cecff959022299400e2b6c9e9d794d8fb25f93c22f3",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6233): WARNING **: 06:34:36.708: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\nFontconfig error: No writable cache directories\n\n** (inkscape:6233): WARNING **: 06:34:37.085: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/L-emoji.raster.png",
+      "raster_sha256": "6dbd71cfcb6d855778d506002863f1bab7bb9e83a8f6bd0d6940055e89d8e160",
+      "dimensions": [
+        174,
+        174
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "414e5152f09f9982f09f9a80",
+      "text": "ANQR🙂🚀",
+      "error_correction_level": "L",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    },
+    {
+      "id": "M-ascii",
+      "requested_level": "M",
+      "svg_sha256": "61964e3c69cb654a7d70b65ef4d75704e7743d80feb875b6436ba4132bbca7af",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6254): WARNING **: 06:34:37.187: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\n\n** (inkscape:6254): WARNING **: 06:34:37.293: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/M-ascii.raster.png",
+      "raster_sha256": "be97dc379c68218c634f0836c634f2093c0ad77aa9ddd96ac76fbab58d73c67d",
+      "dimensions": [
+        198,
+        198
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "414e515220494e444550454e44454e5420504e47203132333435",
+      "text": "ANQR INDEPENDENT PNG 12345",
+      "error_correction_level": "M",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    },
+    {
+      "id": "M-multibyte",
+      "requested_level": "M",
+      "svg_sha256": "4435bb0b0709669bd77c1192baeb65ee547df052bcd018dffad64f974e0dd008",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6255): WARNING **: 06:34:37.188: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\n\n** (inkscape:6255): WARNING **: 06:34:37.286: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/M-multibyte.raster.png",
+      "raster_sha256": "c7bba3871f91d8ead9f8f080a9ca04cadf12d17d6caaad1e7faba55bbacdd0c4",
+      "dimensions": [
+        174,
+        174
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "636166c3a920e69db1e4baac",
+      "text": "café 東京",
+      "error_correction_level": "M",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    },
+    {
+      "id": "M-emoji",
+      "requested_level": "M",
+      "svg_sha256": "0936dcc004fbaf6fdc0798cb56dce6b3c4e1fdb76772dd7f7dae30878e55aee4",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6256): WARNING **: 06:34:37.188: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\n\n** (inkscape:6256): WARNING **: 06:34:37.287: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/M-emoji.raster.png",
+      "raster_sha256": "d62cc47b905337f5e147b1d76e23a81ea7d1e82dce9ffa5c63fdee5d0a84fe03",
+      "dimensions": [
+        174,
+        174
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "414e5152f09f9982f09f9a80",
+      "text": "ANQR🙂🚀",
+      "error_correction_level": "M",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    },
+    {
+      "id": "Q-ascii",
+      "requested_level": "Q",
+      "svg_sha256": "c043768d101963d3fa06b0168f360898a0ecc59726937b18323a187abb2f7674",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6275): WARNING **: 06:34:37.369: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\n\n** (inkscape:6275): WARNING **: 06:34:37.482: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/Q-ascii.raster.png",
+      "raster_sha256": "6dcb079f04c03927be652f7202981dd34ebba82cd6e1690d44b8532ed663f69c",
+      "dimensions": [
+        198,
+        198
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "414e515220494e444550454e44454e5420504e47203132333435",
+      "text": "ANQR INDEPENDENT PNG 12345",
+      "error_correction_level": "Q",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    },
+    {
+      "id": "Q-multibyte",
+      "requested_level": "Q",
+      "svg_sha256": "abc78b0c6cdde86a18886d6d686e7a28787703d5b82139612f9ab4c2de50442b",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6276): WARNING **: 06:34:37.374: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\n\n** (inkscape:6276): WARNING **: 06:34:37.481: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/Q-multibyte.raster.png",
+      "raster_sha256": "172c3d02fc534504307ac138ed5f9f346c70ea5b41890bf4e81da076bbec85b6",
+      "dimensions": [
+        198,
+        198
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "636166c3a920e69db1e4baac",
+      "text": "café 東京",
+      "error_correction_level": "Q",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    },
+    {
+      "id": "Q-emoji",
+      "requested_level": "Q",
+      "svg_sha256": "40a13e10e4ae77ffd21105048a3040d4a3d6d71431e3ae6eea385eeb38e20d98",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6277): WARNING **: 06:34:37.374: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\n\n** (inkscape:6277): WARNING **: 06:34:37.482: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/Q-emoji.raster.png",
+      "raster_sha256": "6aef1758a05c8d0c31960ea133013f193acf639226bcfd654baba757048f4af4",
+      "dimensions": [
+        198,
+        198
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "414e5152f09f9982f09f9a80",
+      "text": "ANQR🙂🚀",
+      "error_correction_level": "Q",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    },
+    {
+      "id": "H-ascii",
+      "requested_level": "H",
+      "svg_sha256": "4ffa51a2916694a8179631554ecf156c78041263e285556fe14fde8d393b9be5",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6296): WARNING **: 06:34:37.573: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\n\n** (inkscape:6296): WARNING **: 06:34:37.698: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/H-ascii.raster.png",
+      "raster_sha256": "d9834609f520713dd5e66937b4e02ae5fa90cb0af6b2eb2d907d56f343f213d5",
+      "dimensions": [
+        222,
+        222
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "414e515220494e444550454e44454e5420504e47203132333435",
+      "text": "ANQR INDEPENDENT PNG 12345",
+      "error_correction_level": "H",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    },
+    {
+      "id": "H-multibyte",
+      "requested_level": "H",
+      "svg_sha256": "89b171d10537d3d5f1cc91f1c0f463652525b768e2da5de385be213dc1a9c19c",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6297): WARNING **: 06:34:37.575: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\n\n** (inkscape:6297): WARNING **: 06:34:37.685: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/H-multibyte.raster.png",
+      "raster_sha256": "dd56fc86072ef188abfdc021a8b48d643e19edad2c3b3f77f4b58b1cea800d1a",
+      "dimensions": [
+        198,
+        198
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "636166c3a920e69db1e4baac",
+      "text": "café 東京",
+      "error_correction_level": "H",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    },
+    {
+      "id": "H-emoji",
+      "requested_level": "H",
+      "svg_sha256": "30b16b4de80874202d414aa553a2bc2a4e1b2ee199c585e21081ee4197bd03c2",
+      "rasterizer_exit": 0,
+      "rasterizer_stderr": "\n** (inkscape:6298): WARNING **: 06:34:37.609: Failed to wrap object of type 'PangoFT2FontMap'. Hint: this error is commonly caused by failing to call a library init() function.\n\n** (inkscape:6298): WARNING **: 06:34:37.765: Failed to wrap object of type 'GtkRecentManager'. Hint: this error is commonly caused by failing to call a library init() function.\n",
+      "raster_file": "artifacts/H-emoji.raster.png",
+      "raster_sha256": "fec674f07e34529d843d7d5bebc890d7fcd81f7539dd58be01fd44aa3a098849",
+      "dimensions": [
+        198,
+        198
+      ],
+      "decoder_found": true,
+      "valid": true,
+      "raw_hex": "414e5152f09f9982f09f9a80",
+      "text": "ANQR🙂🚀",
+      "error_correction_level": "H",
+      "bytes_equal": true,
+      "text_equal": true,
+      "passed": true
+    }
+  ],
+  "scope": "Actual final SVG bytes independently rasterized then QR decoded; exact selected UTF8 bytes/text and L/M/Q/H. No browser/accessibility, arbitrary artwork, animation or production qualification."
+}
