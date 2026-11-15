@@ -66,21 +66,35 @@ function unfilter(raw: Uint8Array, width: number, height: number, bytesPerPixel:
   return out;
 }
 
-async function inflate(input: Uint8Array): Promise<Uint8Array> {
+async function inflate(input: Uint8Array, expectedBytes: number): Promise<Uint8Array> {
   const stream = new DecompressionStream("deflate");
   const writer = stream.writable.getWriter();
   // Copied into a plain ArrayBuffer view: a Uint8Array over a SharedArrayBuffer
   // is not a BufferSource, and the type checker is right to say so.
-  void writer.write(new Uint8Array(input));
-  void writer.close();
+  // Observe both writable promises immediately while draining the readable
+  // side; malformed streams can reject all three operations independently.
+  const writes = Promise.allSettled([writer.write(new Uint8Array(input)), writer.close()]);
   const chunks: Uint8Array[] = [];
   const reader = stream.readable.getReader();
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value !== undefined) { const part = new Uint8Array(value); chunks.push(part); total += part.length; }
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value !== undefined) {
+        if (value.length > expectedBytes - total) throw new Error("PNG_INFLATED_SIZE_MISMATCH");
+        chunks.push(new Uint8Array(value));
+        total += value.length;
+      }
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => {});
+    await writes;
+    throw error;
   }
+  const written = await writes;
+  for (const result of written) if (result.status === "rejected") throw result.reason;
+  if (total !== expectedBytes) throw new Error("PNG_INFLATED_SIZE_MISMATCH");
   const out = new Uint8Array(total);
   let offset = 0;
   for (const part of chunks) { out.set(part, offset); offset += part.length; }
@@ -101,6 +115,7 @@ export const pngImageSource: ImageSourcePort = {
     let bitDepth = 0;
     let colourType = -1;
     let interlaced = 0;
+    let hasTransparencyKey = false;
     const dataParts: Uint8Array[] = [];
     let offset = SIGNATURE.length;
 
@@ -116,6 +131,8 @@ export const pngImageSource: ImageSourcePort = {
         bitDepth = body[8] as number;
         colourType = body[9] as number;
         interlaced = body[12] as number;
+      } else if (type === "tRNS") {
+        hasTransparencyKey = true;
       } else if (type === "IDAT") {
         dataParts.push(body.slice());
       } else if (type === "IEND") {
@@ -130,6 +147,7 @@ export const pngImageSource: ImageSourcePort = {
     if (interlaced !== 0) return refuse("UNSUPPORTED_FORMAT", "interlaced PNG is not decoded");
     const samples = COLOUR_TYPE_SAMPLES[colourType];
     if (samples === undefined) return refuse("UNSUPPORTED_FORMAT", `colour type ${colourType} is not decoded; palette and unknown types are excluded`);
+    if (hasTransparencyKey) return refuse("UNSUPPORTED_FORMAT", "PNG transparency keys are not decoded; explicit alpha channels are supported");
     if (dataParts.length === 0) return refuse("MALFORMED", "no IDAT chunk is present");
 
     let raw: Uint8Array;
@@ -137,7 +155,7 @@ export const pngImageSource: ImageSourcePort = {
       const joined = new Uint8Array(dataParts.reduce((sum, part) => sum + part.length, 0));
       let cursor = 0;
       for (const part of dataParts) { joined.set(part, cursor); cursor += part.length; }
-      raw = await inflate(joined);
+      raw = await inflate(joined, (width * samples + 1) * height);
     } catch {
       return refuse("MALFORMED", "the compressed image data could not be inflated");
     }

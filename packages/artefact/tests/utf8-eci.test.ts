@@ -63,3 +63,14 @@ test("producer refuses a forced version that cannot hold the ECI overhead", asyn
   assert.equal(produced.ok, true);
   if (produced.ok) assert.equal(produced.artefact.structure.symbolVersion, 2);
 });
+
+test("leading U+FEFF is preserved as payload rather than consumed as a BOM", async () => {
+  const payload = "\uFEFFhello";
+  const encoded = encodePayload(payload);
+  const symbol = buildSymbol(encoded.codewords, encoded.version, encoded.level, { mask: "auto" });
+  assert.equal(decodeSymbol(symbol.modules, symbol.size).text, payload);
+  const producer = createArtefactProducer({ containerFor: () => pngContainer, surfaceFor: pngRasterSurface, clock: { nowMs: () => 0 } });
+  const produced = await producer.produce({ payload, outputFormat: "png", errorCorrectionLevel: "M" });
+  assert.equal(produced.ok, true);
+  if (produced.ok) assert.equal(produced.artefact.scanSafety.decodedPayload, payload);
+});

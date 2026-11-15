@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { deflateSync } from "node:zlib";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import { createPixelSurface } from "../src/adapters/pixel-surface.ts";
@@ -299,6 +300,35 @@ test("the image source normalises greyscale and RGB to RGBA", async () => {
   }
 });
 
+test("malformed PNG deflate refuses without unhandled rejections in a normal Node process", () => {
+  const png = buildPng(1, 1, 6, new Uint8Array([0, 0, 0, 0]));
+  const moduleUrl = new URL("../src/adapters/png-image-source.ts", import.meta.url).href;
+  const script = `import { pngImageSource } from ${JSON.stringify(moduleUrl)};
+    const result = await pngImageSource.decode(new Uint8Array(${JSON.stringify([...png])}), 'image/png');
+    if (result.ok || result.reason !== 'MALFORMED') process.exitCode = 2;
+    await new Promise(resolve => setImmediate(resolve));`;
+  const child = spawnSync(process.execPath, ["--unhandled-rejections=strict", "--input-type=module", "-e", script], { encoding: "utf8", timeout: 5000 });
+  assert.equal(child.error, undefined);
+  assert.equal(child.status, 0, child.stderr);
+});
+
+test("PNG inflation refuses excess or short data against declared scanline size", async () => {
+  for (const raw of [new Uint8Array(64 * 1024), new Uint8Array(4)]) {
+    const result = await pngImageSource.decode(buildPng(1, 1, 6, deflateSync(raw)), "image/png");
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.reason, "MALFORMED");
+  }
+});
+
+test("PNG transparency keys are explicitly refused instead of becoming opaque", async () => {
+  for (const [colourType, pixels, key] of [[2, [0, 255, 0, 0], [0, 255, 0, 0, 0, 0]], [0, [0, 128], [0, 128]]] as const) {
+    const png = buildPng(1, 1, colourType, deflateSync(new Uint8Array(pixels)), 8, 0, [...key]);
+    const result = await pngImageSource.decode(png, "image/png");
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.reason, "UNSUPPORTED_FORMAT");
+  }
+});
+
 test("the image source refuses what it cannot decode, with distinct reasons", async () => {
   const valid = (await pngContainer.encode([checkerboard(4, 4)])).bytes;
 
@@ -399,7 +429,7 @@ test("no adapter reaches for a framework or a third-party package", async () => 
 /** Assemble a PNG around already-filtered, already-deflated scanlines. */
 function buildPng(
   width: number, height: number, colourType: number, compressed: Uint8Array | Buffer,
-  bitDepth = 8, interlace = 0,
+  bitDepth = 8, interlace = 0, transparencyKey?: number[],
 ): Uint8Array {
   const be = (value: number): number[] => [(value >>> 24) & 0xff, (value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff];
   const chunk = (type: string, body: number[]): number[] => {
@@ -409,6 +439,7 @@ function buildPng(
   return new Uint8Array([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
     ...chunk("IHDR", [...be(width), ...be(height), bitDepth, colourType, 0, 0, interlace]),
+    ...(transparencyKey === undefined ? [] : chunk("tRNS", transparencyKey)),
     ...chunk("IDAT", [...new Uint8Array(compressed)]),
     ...chunk("IEND", []),
   ]);

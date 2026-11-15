@@ -16,7 +16,8 @@ Directory names describe the scope of the implementation; they do not establish 
 producer with injected raster, container and clock ports. The selected package
 comes from this repository's `92ba820dd63e7461928bdeddfd8a430c4cc10a74`
 source, with UTF-8 ECI and capacity corrections from
-`590d00a7d5e9c878735595b4fe3839da69a4482b`. This selects the package only;
+`590d00a7d5e9c878735595b4fe3839da69a4482b` and subsequent PNG-input and
+exact-text corrections. This selects the package only;
 the historical application and architecture projections are separate.
 
 ```ts
@@ -43,6 +44,10 @@ byte encoding are supported; non-ASCII byte payloads declare UTF-8 ECI 26.
 The internal grid decoder accepts that single ECI byte segment and rejects
 other ECI assignments. It preserves the existing no-ECI UTF-8 decoding behavior.
 A forced version that cannot hold the full header and payload is refused.
+Leading U+FEFF characters are preserved as payload. PNG input inflation is
+bounded by the declared scanline size, and malformed compressed data refuses
+without unhandled stream errors. PNG transparency keys (`tRNS`) are explicitly
+unsupported; RGBA and greyscale-alpha pixels retain their alpha channels.
 
 Selected final PNG outputs have been independently decoded for exact bytes,
 text and ECC. Internal grid round trips and package tests do not establish

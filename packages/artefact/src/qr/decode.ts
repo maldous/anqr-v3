@@ -175,7 +175,7 @@ function decodeSegments(data: Uint8Array, version: number): { text: string; mode
     const count = reader.read(characterCountBits(version, "byte"));
     const bytes = new Uint8Array(count);
     for (let index = 0; index < count; index += 1) bytes[index] = reader.read(8);
-    return { text: new TextDecoder("utf-8", { fatal: true }).decode(bytes), mode: "byte" };
+    return { text: new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes), mode: "byte" };
   }
 
   throw new Error("QR_MODE_UNSUPPORTED");
