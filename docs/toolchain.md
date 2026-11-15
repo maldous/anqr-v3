@@ -9,6 +9,6 @@ From a clean checkout using the recorded Node/npm versions:
     npm test
     npm run test:conformance
 
-The check scripts and compiler configuration are unchanged. Do not supply an undeclared --types node override, an ambient global compiler, or an unpinned latest TypeScript. Development dependency versions and package integrity are locked. No package lifecycle scripts are required for these checks.
+The original bootstrap adoption preserved the check scripts and compiler configuration. The selected artifact-package integration also includes `packages/*/src` and `packages/*/tests` in typechecking and package tests in `npm test`; capability conformance retains its separate command. Do not supply an undeclared --types node override, an ambient global compiler, or an unpinned latest TypeScript. Development dependency versions and package integrity are locked. No package lifecycle scripts are required for these checks.
 
-This adoption qualifies only reproducible source-level checks at this snapshot. It does not select the separate experience candidate, import V1/i18n, change product requirements, prove independently decoded emitted images, or qualify browser/API/MCP/staging/production behavior. Historical test results retain their original scope.
+The bootstrap evidence qualifies reproducible source-level checks at its recorded snapshot. The later artifact-package selection is bounded in README.md; it does not adopt the whole experience candidate, import V1/i18n, or qualify browser/API/MCP/staging/production behavior. Source checks alone do not prove independently decoded emitted images. Historical test results retain their original scope.
