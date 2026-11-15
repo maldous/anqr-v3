@@ -104,6 +104,9 @@ function lzwCompress(indices: Uint8Array, minimumCodeSize: number): Uint8Array {
     const code = dictionary.get(previous);
     emit(code === undefined ? Number(previous) : code);
   }
+  // Reading the final data code can grow the decoder's dictionary even though
+  // there is no next input symbol for the encoder to add. EOI uses that width.
+  if (nextCode === (1 << codeSize) && codeSize < 12) codeSize += 1;
   emit(endCode);
   if (bitCount > 0) output.push(bitBuffer & 0xff);
 
@@ -127,8 +130,12 @@ export const gifContainer: ContainerEncoderPort = {
     if (frames.length === 0) throw new Error("CONTAINER_NO_FRAMES");
     const first = frames[0] as Frame;
     for (const frame of frames) {
-      if (!Number.isInteger(frame.width) || !Number.isInteger(frame.height) || frame.width <= 0 || frame.height <= 0) {
+      if (!Number.isInteger(frame.width) || !Number.isInteger(frame.height)
+          || frame.width <= 0 || frame.height <= 0 || frame.width > 0xffff || frame.height > 0xffff) {
         throw new Error("CONTAINER_FRAME_DIMENSIONS_INVALID");
+      }
+      if (!Number.isFinite(frame.durationMs) || frame.durationMs < 0 || Math.round(frame.durationMs / 10) > 0xffff) {
+        throw new Error("CONTAINER_FRAME_DURATION_INVALID");
       }
       if (frame.pixels.length !== frame.width * frame.height * CHANNELS) throw new Error("CONTAINER_FRAME_MALFORMED");
       // This encoder has no transparent palette entry or partial-alpha model.

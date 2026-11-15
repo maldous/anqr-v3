@@ -49,7 +49,8 @@ bounded by the declared scanline size, and malformed compressed data refuses
 without unhandled stream errors. PNG transparency keys (`tRNS`) are explicitly
 unsupported; RGBA and greyscale-alpha pixels retain their alpha channels.
 The GIF adapter accepts opaque frames only and refuses transparency instead
-of silently flattening it.
+of silently flattening it. Dimensions must fit its 16-bit fields, and frame
+delays must be finite, nonnegative and fit 16-bit centiseconds after rounding.
 
 Selected final PNG outputs have been independently decoded for exact bytes,
 text and ECC. Internal grid round trips and package tests do not establish

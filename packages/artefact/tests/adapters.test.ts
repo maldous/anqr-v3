@@ -245,6 +245,43 @@ test("GIF refuses transparent and partial-alpha frames rather than flattening pi
   assert.ok((await gifContainer.encode([opaque])).bytes.length > 0);
 });
 
+test("GIF dimensions and timing fit their format fields without wrapping", async () => {
+  for (const [width, height] of [[65536, 1], [1, 65536]]) {
+    const pixels = new Uint8Array(width * height * 4).fill(255);
+    await assert.rejects(() => gifContainer.encode([{ width, height, pixels, durationMs: 0 }]), /CONTAINER_FRAME_DIMENSIONS_INVALID/);
+  }
+  for (const durationMs of [-1, NaN, Infinity, 655360]) {
+    await assert.rejects(() => gifContainer.encode([checkerboard(1, 1, durationMs)]), /CONTAINER_FRAME_DURATION_INVALID/);
+  }
+  const boundary = await gifContainer.encode([frame(65535, 1, () => WHITE, 655350)]);
+  assert.deepEqual([...boundary.bytes.subarray(6, 10)], [255, 255, 1, 0]);
+  const control = boundary.bytes.findIndex((value, index) => value === 0x21
+    && boundary.bytes[index + 1] === 0xf9 && boundary.bytes[index + 2] === 0x04);
+  assert.ok(control >= 0);
+  assert.deepEqual([...boundary.bytes.subarray(control + 4, control + 6)], [255, 255]);
+});
+
+test("GIF end code uses the decoder width after the final dictionary entry", async () => {
+  const encoded = await gifContainer.encode([frame(127, 1, (x) => ({ red: x, green: 0, blue: 0, alpha: 255 }))]);
+  const bytes = encoded.bytes;
+  const tableSize = 1 << ((bytes[10]! & 7) + 1);
+  let offset = 13 + tableSize * 3;
+  assert.equal(bytes[offset], 0x21); // Graphics control extension.
+  offset += 8;
+  assert.equal(bytes[offset], 0x2c); // Image descriptor.
+  offset += 10;
+  assert.equal(bytes[offset++], 7); // 127-colour palette: minimum code size 7.
+  const compressed: number[] = [];
+  for (let length = bytes[offset++]!; length !== 0; length = bytes[offset++]!) {
+    compressed.push(...bytes.subarray(offset, offset + length));
+    offset += length;
+  }
+  // Clear + 127 unique literal codes are eight bits each; EOI 129 is nine
+  // bits after the decoder's final dictionary insertion, including its zero
+  // ninth bit and the final byte padding. The old stream omitted that byte.
+  assert.deepEqual(compressed, [128, ...Array.from({ length: 127 }, (_, index) => index), 129, 0]);
+});
+
 test("GIF encoding is deterministic", async () => {
   const frames = [checkerboard(8, 8, 50), checkerboard(8, 8, 50)];
   assert.deepEqual((await gifContainer.encode(frames)).bytes, (await gifContainer.encode(frames)).bytes);
