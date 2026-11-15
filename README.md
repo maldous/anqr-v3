@@ -48,6 +48,8 @@ Leading U+FEFF characters are preserved as payload. PNG input inflation is
 bounded by the declared scanline size, and malformed compressed data refuses
 without unhandled stream errors. PNG transparency keys (`tRNS`) are explicitly
 unsupported; RGBA and greyscale-alpha pixels retain their alpha channels.
+The GIF adapter accepts opaque frames only and refuses transparency instead
+of silently flattening it.
 
 Selected final PNG outputs have been independently decoded for exact bytes,
 text and ECC. Internal grid round trips and package tests do not establish

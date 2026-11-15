@@ -131,6 +131,11 @@ export const gifContainer: ContainerEncoderPort = {
         throw new Error("CONTAINER_FRAME_DIMENSIONS_INVALID");
       }
       if (frame.pixels.length !== frame.width * frame.height * CHANNELS) throw new Error("CONTAINER_FRAME_MALFORMED");
+      // This encoder has no transparent palette entry or partial-alpha model.
+      // Refuse rather than silently flattening caller-supplied pixels.
+      for (let offset = 3; offset < frame.pixels.length; offset += CHANNELS) {
+        if (frame.pixels[offset] !== 255) throw new Error("CONTAINER_ALPHA_UNSUPPORTED");
+      }
       // One logical screen, so every frame must agree on size.
       if (frame.width !== first.width || frame.height !== first.height) throw new Error("CONTAINER_FRAME_SIZE_MISMATCH");
     }

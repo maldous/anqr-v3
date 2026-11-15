@@ -236,6 +236,15 @@ test("large accepted QR GIF exports without a function-argument limit", async ()
   }
 });
 
+test("GIF refuses transparent and partial-alpha frames rather than flattening pixels", async () => {
+  for (const alpha of [0, 128, 254]) {
+    const supplied = frame(1, 1, () => ({ red: 255, green: 0, blue: 0, alpha }));
+    await assert.rejects(() => gifContainer.encode([supplied]), /CONTAINER_ALPHA_UNSUPPORTED/);
+  }
+  const opaque = frame(1, 1, () => ({ red: 255, green: 0, blue: 0, alpha: 255 }));
+  assert.ok((await gifContainer.encode([opaque])).bytes.length > 0);
+});
+
 test("GIF encoding is deterministic", async () => {
   const frames = [checkerboard(8, 8, 50), checkerboard(8, 8, 50)];
   assert.deepEqual((await gifContainer.encode(frames)).bytes, (await gifContainer.encode(frames)).bytes);
