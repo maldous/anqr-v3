@@ -159,7 +159,7 @@ export const gifContainer: ContainerEncoderPort = {
       bytes.push(0x21, 0xf9, 0x04, 0x04, ...leUint16(centiseconds), 0x00, 0x00);
       bytes.push(0x2c, ...leUint16(0), ...leUint16(0), ...leUint16(frame.width), ...leUint16(frame.height), 0x00);
       bytes.push(depth);
-      bytes.push(...lzwCompress((indexed[index] as Indexed).indices, depth));
+      for (const byte of lzwCompress((indexed[index] as Indexed).indices, depth)) bytes.push(byte);
     }
     bytes.push(TRAILER);
     return { bytes: new Uint8Array(bytes), mediaType: this.mediaType };

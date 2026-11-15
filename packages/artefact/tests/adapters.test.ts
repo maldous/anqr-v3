@@ -13,6 +13,7 @@ import type { Frame } from "../src/ports/container-encoder.ts";
 import { encodePayload } from "../src/qr/encode.ts";
 import { buildSymbol } from "../src/qr/matrix.ts";
 import { decodeSymbol } from "../src/qr/decode.ts";
+import { createArtefactProducer } from "../src/application/produce-artefact.ts";
 
 // Behaviour of the five adapters that close the artefact output boundary.
 //
@@ -219,6 +220,20 @@ test("GIF refuses frames of differing size and malformed frames", async () => {
     () => gifContainer.encode([{ width: 4, height: 4, pixels: new Uint8Array(7), durationMs: 0 }]),
     /CONTAINER_FRAME_MALFORMED/,
   );
+});
+
+test("large accepted QR GIF exports without a function-argument limit", async () => {
+  const producer = createArtefactProducer({ containerFor: () => gifContainer, surfaceFor: gifRasterSurface, clock: fixedClock(0) });
+  const produced = await producer.produce({ payload: "hello", outputFormat: "gif", errorCorrectionLevel: "M", symbolVersion: 40, moduleSizePx: 12, maskPattern: 0 });
+  assert.equal(produced.ok, true);
+  if (!produced.ok) return;
+  const exported = await producer.exportArtefact(produced.artefact);
+  assert.equal(exported.ok, true);
+  if (exported.ok) {
+    assert.ok(exported.byteLength > 131072);
+    assert.equal(new TextDecoder().decode(exported.bytes.subarray(0, 6)), "GIF89a");
+    assert.equal(exported.bytes.at(-1), 0x3b);
+  }
 });
 
 test("GIF encoding is deterministic", async () => {
