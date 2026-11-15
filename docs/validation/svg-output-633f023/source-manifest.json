@@ -1,0 +1,106 @@
+{
+  "head": "633f023d46affc185031aaf5ab7398874e067fe4",
+  "tree": "7219d9e0ca585d5eda2127d70400f8240f4810c4",
+  "files": [
+    {
+      "path": "packages/artefact/src/adapters/gif-container.ts",
+      "sha256": "b8dd340a020b3bc7c5382299dfae513385f834d5ee3fc63152383c4fc8e636c0",
+      "git_blob": "1fe05a464cefe0e98a8e432418b3b39236b23d0d"
+    },
+    {
+      "path": "packages/artefact/src/adapters/pixel-surface.ts",
+      "sha256": "9bd7f11435d22447a3c66d44057166a0b2e254a1565268e27d9b6bda3c5c8492",
+      "git_blob": "7a3fd0c1463ee8da3186db46e6556b476365d60e"
+    },
+    {
+      "path": "packages/artefact/src/adapters/png-container.ts",
+      "sha256": "2ed53bbc5b64618e6d4499153235f3f4dc086014cfd6b1152e41034533938e4b",
+      "git_blob": "30cee668f2f36268bb9f5784763cbb3a1a08303d"
+    },
+    {
+      "path": "packages/artefact/src/adapters/png-image-source.ts",
+      "sha256": "4de7d009f54aa4be50569a43c64eb02964f9bb4eedc5342a30e7638066e76493",
+      "git_blob": "1b1c9d56db64f3b7e19b910f3d9066c51159fc75"
+    },
+    {
+      "path": "packages/artefact/src/adapters/svg-container.ts",
+      "sha256": "a75743ab4089b9795e1b4b8de076f166088bf5be729c8a4dfc73f1adb15cd874",
+      "git_blob": "8d9a733eeb7a7175b2bcfe743728fca35b820781"
+    },
+    {
+      "path": "packages/artefact/src/adapters/system-clock.ts",
+      "sha256": "c7cf50244743dbed365d10ca86198839f3ff130f644974d253d6742b37f0acd0",
+      "git_blob": "7a94f860e94ca0b9383509d3dc5714063055a76e"
+    },
+    {
+      "path": "packages/artefact/src/application/produce-artefact.ts",
+      "sha256": "5890899c144b32e156a291ee910206ce5d622d8f4dd20c874aa79854347fcbbe",
+      "git_blob": "405bd81dd599d2dbb01820765127623edd804926"
+    },
+    {
+      "path": "packages/artefact/src/model/artefact-specification.ts",
+      "sha256": "80419a4a7c9550cea314f031581efad915350768d0b09375e04324735eaeae8c",
+      "git_blob": "bf36b4518b198e3771c020a16e1d5a94733d565e"
+    },
+    {
+      "path": "packages/artefact/src/ports/clock.ts",
+      "sha256": "fced69907e5057df45c8813a322e970a5db677ef81908ca60d0af94d3054f859",
+      "git_blob": "eb8afcdcb1f14c0b9b1c20d92f62660a0cd3a9e5"
+    },
+    {
+      "path": "packages/artefact/src/ports/container-encoder.ts",
+      "sha256": "3afcef28674872bc35491c31d840fb41d9bf08a0a599d7889c9119eed4fac286",
+      "git_blob": "6c57effac02eb0dd5dcd2cb27f802037b003e123"
+    },
+    {
+      "path": "packages/artefact/src/ports/image-source.ts",
+      "sha256": "288e3e92729669a5ea39118b6eaca3b35615b66c97a05242e5a545f3c55c255f",
+      "git_blob": "5a2ca4b54b6c2629168d903edce7a2cd52fe2a10"
+    },
+    {
+      "path": "packages/artefact/src/ports/inspect-artefact.ts",
+      "sha256": "454a3b2b386ed9b0c63dcdd29ee8c1055205dd61d2879a927379f9b5e5a676e3",
+      "git_blob": "d329647dafd57e64d44d836f3aabb9cb37b0a704"
+    },
+    {
+      "path": "packages/artefact/src/ports/produce-artefact.ts",
+      "sha256": "46f7834d5586d415fcf347aede1b8a6feeaf6f91e543f5cc58e581e3618420ff",
+      "git_blob": "06728d3d9043d7e77f7a22f055f1a753a4bf6745"
+    },
+    {
+      "path": "packages/artefact/src/ports/raster-surface.ts",
+      "sha256": "942960a69fe87c972dc27ae59974855ccf8a5b41c40c477a8e12cf2c26039f3e",
+      "git_blob": "4fb789b8549d9b075d0e9c0b59357509fdb7ce60"
+    },
+    {
+      "path": "packages/artefact/src/qr/decode.ts",
+      "sha256": "a21af336ea06d4ba32bea75dafc12e4033e92ebe0ab3f678f6bf2e31a5e6476a",
+      "git_blob": "ba050b35f2f778d0c304039ef4233157a68400a1"
+    },
+    {
+      "path": "packages/artefact/src/qr/encode.ts",
+      "sha256": "6a3acbffd2e986d4e0fe208d98ce8310463d6bf83161155e6604b553643985d7",
+      "git_blob": "3a07cc63bef2df85b43a408536031281a8b160ac"
+    },
+    {
+      "path": "packages/artefact/src/qr/galois.ts",
+      "sha256": "ffb75f2f6f0f4e6660184364acafba128c6fbc2611ced8fe2cce706d35c4128b",
+      "git_blob": "745970e2302677caa26ce62dd7ae625bb1ba1925"
+    },
+    {
+      "path": "packages/artefact/src/qr/matrix.ts",
+      "sha256": "ef288838e2352345755b5a8a7e8047dc82938b5dc2769781f98697b309864f3e",
+      "git_blob": "7435d3100f494dc4c5dddaae1337f9f7cb53d7b6"
+    },
+    {
+      "path": "packages/artefact/src/qr/reed-solomon.ts",
+      "sha256": "03cb4f75372a4949eb7e150e3f0bf4c8dc636d7496191a02622294af877c7309",
+      "git_blob": "e7539e2af2057ecabd1fed44234bc96f7a4c9a6f"
+    },
+    {
+      "path": "packages/artefact/src/qr/spec.ts",
+      "sha256": "c7d02cfd1591473603f831d4954128d227363cb4a75b44e320edcee9337e2a0e",
+      "git_blob": "2fc566bf6e24aaec555543c8bc47106d037c7f4c"
+    }
+  ]
+}

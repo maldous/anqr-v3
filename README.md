@@ -58,6 +58,11 @@ camera, browser accessibility, arbitrary image decoding, animation/customisation
 safety or production acceptance. This package is not a deployed service and
 does not replace the separate capability modules.
 
+[SVG output qualification](docs/validation/svg-output-633f023/README.md)
+records the selected source, final files, independent decoding results and
+optional reproduction tools. These tools are separate from the product's
+runtime and core source checks.
+
 ## Development
 
 Requires **Node.js 22 or later** and TypeScript tooling. The package provides these scripts:

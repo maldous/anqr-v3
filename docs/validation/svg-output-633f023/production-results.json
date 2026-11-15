@@ -1,0 +1,331 @@
+{
+  "source": "633f023d46affc185031aaf5ab7398874e067fe4",
+  "node": "v24.16.0",
+  "contract": "Final SVG qualification; independent rasterisation required; internal scanSafety is not independent evidence",
+  "results": [
+    {
+      "id": "L-ascii",
+      "requestedLevel": "L",
+      "payload": "ANQR INDEPENDENT PNG 12345",
+      "expectedHex": "414e515220494e444550454e44454e5420504e47203132333435",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/L-ascii.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 121694,
+      "sha256": "c9292f6350bc6302592c049e852883545762407e42fb12112c980adcc9e65e93",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 2,
+        "errorCorrectionLevel": "L",
+        "maskPattern": 4,
+        "moduleCount": 625,
+        "sizePx": 198,
+        "damageMarginCodewords": 5
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "ANQR INDEPENDENT PNG 12345",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    },
+    {
+      "id": "L-multibyte",
+      "requestedLevel": "L",
+      "payload": "café 東京",
+      "expectedHex": "636166c3a920e69db1e4baac",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/L-multibyte.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 90518,
+      "sha256": "712dd417129b3f33e965c70d503dbc31e2adb1201b2094e2de2e691f08afea25",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 1,
+        "errorCorrectionLevel": "L",
+        "maskPattern": 0,
+        "moduleCount": 441,
+        "sizePx": 174,
+        "damageMarginCodewords": 3
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "café 東京",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    },
+    {
+      "id": "L-emoji",
+      "requestedLevel": "L",
+      "payload": "ANQR🙂🚀",
+      "expectedHex": "414e5152f09f9982f09f9a80",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/L-emoji.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 91942,
+      "sha256": "fa19eb261f399e7040f20cecff959022299400e2b6c9e9d794d8fb25f93c22f3",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 1,
+        "errorCorrectionLevel": "L",
+        "maskPattern": 1,
+        "moduleCount": 441,
+        "sizePx": 174,
+        "damageMarginCodewords": 3
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "ANQR🙂🚀",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    },
+    {
+      "id": "M-ascii",
+      "requestedLevel": "M",
+      "payload": "ANQR INDEPENDENT PNG 12345",
+      "expectedHex": "414e515220494e444550454e44454e5420504e47203132333435",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/M-ascii.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 122334,
+      "sha256": "61964e3c69cb654a7d70b65ef4d75704e7743d80feb875b6436ba4132bbca7af",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 2,
+        "errorCorrectionLevel": "M",
+        "maskPattern": 4,
+        "moduleCount": 625,
+        "sizePx": 198,
+        "damageMarginCodewords": 8
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "ANQR INDEPENDENT PNG 12345",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    },
+    {
+      "id": "M-multibyte",
+      "requestedLevel": "M",
+      "payload": "café 東京",
+      "expectedHex": "636166c3a920e69db1e4baac",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/M-multibyte.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 91962,
+      "sha256": "4435bb0b0709669bd77c1192baeb65ee547df052bcd018dffad64f974e0dd008",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 1,
+        "errorCorrectionLevel": "M",
+        "maskPattern": 1,
+        "moduleCount": 441,
+        "sizePx": 174,
+        "damageMarginCodewords": 5
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "café 東京",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    },
+    {
+      "id": "M-emoji",
+      "requestedLevel": "M",
+      "payload": "ANQR🙂🚀",
+      "expectedHex": "414e5152f09f9982f09f9a80",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/M-emoji.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 93294,
+      "sha256": "0936dcc004fbaf6fdc0798cb56dce6b3c4e1fdb76772dd7f7dae30878e55aee4",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 1,
+        "errorCorrectionLevel": "M",
+        "maskPattern": 1,
+        "moduleCount": 441,
+        "sizePx": 174,
+        "damageMarginCodewords": 5
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "ANQR🙂🚀",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    },
+    {
+      "id": "Q-ascii",
+      "requestedLevel": "Q",
+      "payload": "ANQR INDEPENDENT PNG 12345",
+      "expectedHex": "414e515220494e444550454e44454e5420504e47203132333435",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/Q-ascii.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 120282,
+      "sha256": "c043768d101963d3fa06b0168f360898a0ecc59726937b18323a187abb2f7674",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 2,
+        "errorCorrectionLevel": "Q",
+        "maskPattern": 4,
+        "moduleCount": 625,
+        "sizePx": 198,
+        "damageMarginCodewords": 11
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "ANQR INDEPENDENT PNG 12345",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    },
+    {
+      "id": "Q-multibyte",
+      "requestedLevel": "Q",
+      "payload": "café 東京",
+      "expectedHex": "636166c3a920e69db1e4baac",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/Q-multibyte.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 130036,
+      "sha256": "abc78b0c6cdde86a18886d6d686e7a28787703d5b82139612f9ab4c2de50442b",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 2,
+        "errorCorrectionLevel": "Q",
+        "maskPattern": 7,
+        "moduleCount": 625,
+        "sizePx": 198,
+        "damageMarginCodewords": 11
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "café 東京",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    },
+    {
+      "id": "Q-emoji",
+      "requestedLevel": "Q",
+      "payload": "ANQR🙂🚀",
+      "expectedHex": "414e5152f09f9982f09f9a80",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/Q-emoji.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 124440,
+      "sha256": "40a13e10e4ae77ffd21105048a3040d4a3d6d71431e3ae6eea385eeb38e20d98",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 2,
+        "errorCorrectionLevel": "Q",
+        "maskPattern": 7,
+        "moduleCount": 625,
+        "sizePx": 198,
+        "damageMarginCodewords": 11
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "ANQR🙂🚀",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    },
+    {
+      "id": "H-ascii",
+      "requestedLevel": "H",
+      "payload": "ANQR INDEPENDENT PNG 12345",
+      "expectedHex": "414e515220494e444550454e44454e5420504e47203132333435",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/H-ascii.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 173960,
+      "sha256": "4ffa51a2916694a8179631554ecf156c78041263e285556fe14fde8d393b9be5",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 3,
+        "errorCorrectionLevel": "H",
+        "maskPattern": 6,
+        "moduleCount": 841,
+        "sizePx": 222,
+        "damageMarginCodewords": 11
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "ANQR INDEPENDENT PNG 12345",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    },
+    {
+      "id": "H-multibyte",
+      "requestedLevel": "H",
+      "payload": "café 東京",
+      "expectedHex": "636166c3a920e69db1e4baac",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/H-multibyte.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 121726,
+      "sha256": "89b171d10537d3d5f1cc91f1c0f463652525b768e2da5de385be213dc1a9c19c",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 2,
+        "errorCorrectionLevel": "H",
+        "maskPattern": 3,
+        "moduleCount": 625,
+        "sizePx": 198,
+        "damageMarginCodewords": 14
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "café 東京",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    },
+    {
+      "id": "H-emoji",
+      "requestedLevel": "H",
+      "payload": "ANQR🙂🚀",
+      "expectedHex": "414e5152f09f9982f09f9a80",
+      "produced": true,
+      "exported": true,
+      "filename": "artifacts/H-emoji.svg",
+      "mediaType": "image/svg+xml",
+      "byteLength": 127226,
+      "sha256": "30b16b4de80874202d414aa553a2bc2a4e1b2ee199c585e21081ee4197bd03c2",
+      "prefixBytes": "3c73766720786d6c",
+      "structure": {
+        "symbolVersion": 2,
+        "errorCorrectionLevel": "H",
+        "maskPattern": 7,
+        "moduleCount": 625,
+        "sizePx": 198,
+        "damageMarginCodewords": 14
+      },
+      "internalScanSafety": {
+        "verified": true,
+        "decodedPayload": "ANQR🙂🚀",
+        "verdict": "scannable",
+        "detail": "Decoded back to exactly the requested payload."
+      }
+    }
+  ]
+}
