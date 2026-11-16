@@ -3,6 +3,79 @@ import test from "node:test";
 
 import * as capability from "../../../src/capabilities/quality/performancebudget.ts";
 
+test("performancebudget rejects invalid validation numbers before audit", () => {
+  const invalidNumbers = [NaN, Infinity, -Infinity, -1];
+  const fields = ["elapsedMillis", "outputBytes", "maxMillis", "maxOutputBytes"] as const;
+  for (const field of fields) {
+    for (const value of invalidNumbers) {
+      const measurement = { elapsedMillis: 1, outputBytes: 1 };
+      const budget: capability.PerformanceBudget = {
+        class: "trivial", maxMillis: 10, maxOutputBytes: 10,
+      };
+      const input = field === "elapsedMillis" || field === "outputBytes"
+        ? { ...measurement, [field]: value } : measurement;
+      const limit = field === "maxMillis" || field === "maxOutputBytes"
+        ? { ...budget, [field]: value } : budget;
+      // Construct directly so factory policy does not mask validation behavior.
+      const surface: capability.Surface = {
+        id: "invalid.svc", budgets: new Map([["trivial", limit]]),
+      };
+      const samples = new Map<capability.ComplexityClass, readonly capability.RequestMeasurement[]>([
+        ["trivial", [input]],
+      ]);
+      const expected = { name: "RangeError", message: new RegExp(`${field} must be finite and non-negative`) };
+      assert.throws(() => capability.validateAgainstBudget(surface, "trivial", input), expected);
+      assert.throws(() => capability.validateMeasurementsAgainstBudgets(
+        surface, new Map([["trivial", input]]),
+      ), expected);
+      assert.throws(() => capability.validateRepresentativeSamples(surface, samples), expected);
+      let audits = 0;
+      assert.throws(() => capability.runRepresentativeBudgetValidation(surface, samples, (report) => {
+        audits += 1;
+        return report;
+      }), expected);
+      assert.equal(audits, 0);
+    }
+  }
+});
+
+test("performancebudget validation uses each numeric getter once", () => {
+  const reads = { elapsedMillis: 0, outputBytes: 0, maxMillis: 0, maxOutputBytes: 0 };
+  const measurement = {
+    get elapsedMillis() { return ++reads.elapsedMillis === 1 ? 2 : NaN; },
+    get outputBytes() { return ++reads.outputBytes === 1 ? 3 : NaN; },
+  };
+  const budget: capability.PerformanceBudget = {
+    class: "trivial",
+    get maxMillis() { return ++reads.maxMillis === 1 ? 1 : NaN; },
+    get maxOutputBytes() { return ++reads.maxOutputBytes === 1 ? 1 : NaN; },
+  };
+  const surface: capability.Surface = { id: "getters.svc", budgets: new Map([["trivial", budget]]) };
+  const result = capability.validateAgainstBudget(surface, "trivial", measurement);
+  assert.equal(result.outcome, "over-both");
+  assert.deepEqual(reads, { elapsedMillis: 1, outputBytes: 1, maxMillis: 1, maxOutputBytes: 1 });
+  assert.equal(result.measurement, measurement);
+  assert.equal(result.budget, budget);
+});
+
+test("performancebudget validation preserves zero and finite equality", () => {
+  for (const value of [0, 1, 0.5]) {
+    const budget = capability.createBudget("trivial", value, value);
+    const surface = capability.createSurface("boundary.svc", [budget]);
+    const measurement = { elapsedMillis: value, outputBytes: value };
+    assert.equal(capability.validateAgainstBudget(surface, "trivial", measurement).outcome, "within");
+    let audits = 0;
+    const result = capability.runRepresentativeBudgetValidation(
+      surface, new Map([["trivial", [measurement]]]), (report) => {
+        audits += 1;
+        return report;
+      },
+    );
+    assert.equal(result.summary, "all-within");
+    assert.equal(audits, 1);
+  }
+});
+
 test("performancebudgetcontracts", () => {
   const surface = capability.createSurface("search.svc", [
     capability.createBudget("trivial", 50, 1024),

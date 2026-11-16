@@ -80,3 +80,50 @@ test("deterministicoutputvalidation", () => {
     assert.strictEqual(result.identical, true);
   }
 });
+
+test("byte identity rejects distinct outputs with the same checksum", () => {
+  const artwork: capability.ArtworkSpecification = {
+    colors: ["#000000"],
+    dimensions: [1, 1],
+    style: "test",
+  };
+  // Fixed seeds found once: different 1,024-byte sequences collide under FNV-1a.
+  const result = capability.validateByteIdenticalOutput([
+    capability.createDeterministicRequest(artwork, 58813),
+    capability.createDeterministicRequest(artwork, 130364),
+  ]);
+
+  assert.equal(result.outputs.length, 2);
+  const [first, second] = result.outputs;
+  assert.equal(first.bytes.length, 1024);
+  assert.equal(second.bytes.length, 1024);
+  assert.equal(first.checksum, "7930afb9");
+  assert.equal(second.checksum, first.checksum);
+  assert.notDeepEqual(first.bytes, second.bytes);
+  assert.equal(result.identical, false);
+});
+
+test("byte identity handles empty, equal and ordinarily different outputs", () => {
+  const artwork: capability.ArtworkSpecification = {
+    colors: ["#000000"],
+    dimensions: [1, 1],
+    style: "test",
+  };
+  const first = capability.createDeterministicRequest(artwork, 1);
+  const second = capability.createDeterministicRequest(artwork, 2);
+
+  assert.deepEqual(capability.validateByteIdenticalOutput([]), {
+    identical: true,
+    outputs: [],
+  });
+  assert.equal(capability.validateByteIdenticalOutput([first]).identical, true);
+  const equal = capability.validateByteIdenticalOutput([first, first]);
+  assert.equal(equal.identical, true);
+  assert.deepEqual(equal.outputs[0].bytes, equal.outputs[1].bytes);
+
+  const different = capability.validateByteIdenticalOutput([first, second, first]);
+  assert.equal(different.identical, false);
+  assert.equal(different.outputs.length, 3);
+  assert.notDeepEqual(different.outputs[0].bytes, different.outputs[1].bytes);
+  assert.deepEqual(different.outputs[0].bytes, different.outputs[2].bytes);
+});

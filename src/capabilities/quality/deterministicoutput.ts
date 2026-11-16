@@ -231,7 +231,7 @@ export function validateByteIdenticalOutput(
   }
 
   const outputs: DeterministicOutput[] = [];
-  let firstChecksum: string | null = null;
+  let firstBytes: Uint8Array | null = null;
   let identical = true;
 
   for (const request of requests) {
@@ -243,10 +243,15 @@ export function validateByteIdenticalOutput(
 
     outputs.push(result.output);
     
-    if (firstChecksum === null) {
-      firstChecksum = result.output.checksum;
-    } else if (firstChecksum !== result.output.checksum) {
-      identical = false;
+    if (firstBytes === null) {
+      firstBytes = result.output.bytes;
+    } else {
+      const bytes = result.output.bytes;
+      const reference = firstBytes;
+      if (bytes.length !== reference.length ||
+          bytes.some((byte, index) => byte !== reference[index])) {
+        identical = false;
+      }
     }
   }
 
