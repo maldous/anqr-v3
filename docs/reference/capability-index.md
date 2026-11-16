@@ -108,6 +108,9 @@ perimeter and readiness behavior without implying hosted or authenticated servic
 
 ### Payload
 
+The [custom/payment payload reference](payload-admission-models.md) distinguishes
+string identity and field-name admission from encoding, conformance and payment execution.
+
 | Source module | Export entries |
 | --- | ---: |
 | [custompayloaddefinition](../../src/capabilities/payload/custompayloaddefinition.ts) | 14 |
