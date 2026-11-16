@@ -402,8 +402,21 @@ function validateMeasurement(
   budget: PerformanceBudget,
   measurement: RequestMeasurement,
 ): BudgetValidationResult {
-  const overTime = measurement.elapsedMillis > budget.maxMillis;
-  const overSize = measurement.outputBytes > budget.maxOutputBytes;
+  // Validate and compare the same values, including for getter-backed inputs.
+  const { elapsedMillis, outputBytes } = measurement;
+  const { maxMillis, maxOutputBytes } = budget;
+  for (const [field, value] of [
+    ['elapsedMillis', elapsedMillis],
+    ['outputBytes', outputBytes],
+    ['maxMillis', maxMillis],
+    ['maxOutputBytes', maxOutputBytes],
+  ] as const) {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new RangeError(`${field} must be finite and non-negative.`);
+    }
+  }
+  const overTime = elapsedMillis > maxMillis;
+  const overSize = outputBytes > maxOutputBytes;
   let outcome: BudgetValidationOutcome;
   if (overTime && overSize) {
     outcome = 'over-both';

@@ -2,6 +2,86 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as capability from "../../../src/capabilities/localisation/localetypography.ts";
 
+test("font audit rejects mismatched success and failure before callbacks", () => {
+  for (const outcome of [
+    capability.createFontLoadSuccess("FontB"),
+    capability.createFontLoadError("FontB", "not found"),
+  ]) {
+    const state = capability.createTypographyState({ en: "FontA" });
+    let calls = 0;
+    assert.throws(() => capability.loadFontWithAudit("FontA", outcome, state, () => {
+      calls += 1;
+    }), /Font load outcome must match the requested font/);
+    assert.equal(calls, 0);
+    assert.deepEqual([...state.loadedFonts], []);
+    assert.deepEqual([...state.failedFonts], []);
+    assert.equal(state.localeFontMap.en, "FontA");
+  }
+});
+
+test("font audit processes the checked getter identity", () => {
+  let fontReads = 0;
+  // Prototype getters are valid outcome properties, not enumerable own fields.
+  class Outcome implements capability.FontLoadResult {
+    get success(): true { return true; }
+    get font(): string { return ++fontReads === 1 ? "FontA" : "FontB"; }
+  }
+  const state = capability.createTypographyState({ en: "FontA" });
+  const audited: string[] = [];
+  const next = capability.loadFontWithAudit("FontA", new Outcome(), state, (font, original) => {
+    audited.push(font);
+    assert.equal(original, state);
+    assert.equal(original.loadedFonts.size, 0);
+  });
+  assert.equal(fontReads, 1);
+  assert.deepEqual(audited, ["FontA"]);
+  assert.deepEqual([...next.loadedFonts], ["FontA"]);
+  assert.equal(next.loadedFonts.has("FontB"), false);
+  assert.equal(state.loadedFonts.size, 0);
+});
+
+test("matching font outcomes preserve audit order and default refusals", () => {
+  for (const outcome of [
+    capability.createFontLoadSuccess("FontA"),
+    capability.createFontLoadError("FontA", "unavailable", "custom-fallback"),
+  ]) {
+    const state = capability.createTypographyState({ en: "FontA" });
+    let calls = 0;
+    const next = capability.loadFontWithAudit("FontA", outcome, state, (font, original) => {
+      calls += 1;
+      assert.equal(font, "FontA");
+      assert.equal(original, state);
+      assert.equal(original.loadedFonts.size, 0);
+      assert.equal(original.failedFonts.size, 0);
+    });
+    assert.equal(calls, 1);
+    assert.equal(next.loadedFonts.has("FontA"), outcome.success);
+    assert.equal(next.failedFonts.has("FontA"), !outcome.success);
+    assert.equal(state.loadedFonts.size, 0);
+    assert.equal(state.failedFonts.size, 0);
+    assert.throws(() => capability.loadFontWithAudit("FontA", outcome, next),
+      outcome.success ? /already loaded/ : /already failed loading/);
+  }
+});
+
+test("matching font failure leaves unused error metadata lazy", () => {
+  let fontReads = 0;
+  class Outcome implements capability.FontLoadError {
+    get success(): false { return false; }
+    get font(): string { return ++fontReads === 1 ? "FontA" : "FontB"; }
+    get fallback(): string { throw new Error("unused fallback read"); }
+    get reason(): string { throw new Error("unused reason read"); }
+  }
+  const state = capability.createTypographyState({ en: "FontA" });
+  let calls = 0;
+  const next = capability.loadFontWithAudit("FontA", new Outcome(), state, () => { calls += 1; });
+  assert.equal(calls, 1);
+  assert.equal(fontReads, 1);
+  assert.deepEqual([...next.failedFonts], ["FontA"]);
+  assert.equal(next.loadedFonts.size, 0);
+  assert.equal(state.failedFonts.size, 0);
+});
+
 test("localetypographycontracts", () => {
   const state = capability.createTypographyState({
     en: "Inter",

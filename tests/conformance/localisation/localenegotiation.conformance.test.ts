@@ -27,3 +27,16 @@ test("localenegotiationvalidation", () => {
   assert.deepEqual(capability.validateNegotiation(undefined, undefined, ['es']), { status: 'success', locale: 'en', resolvedBy: 'source' });
   assert.deepEqual(capability.validateNegotiation(undefined, undefined, ['fr-CA']), { status: 'success', locale: 'fr', resolvedBy: 'alias' });
 });
+
+test("localenegotiation ignores inherited alias properties", () => {
+  for (const language of ['toString', 'constructor', '__proto__', 'hasOwnProperty']) {
+    assert.deepEqual(
+      capability.negotiateLocale(undefined, undefined, [language]),
+      { status: 'success', locale: 'en', resolvedBy: 'source' },
+    );
+    assert.deepEqual(
+      capability.validateNegotiation(undefined, undefined, [language, 'fr-CA']),
+      { status: 'success', locale: 'fr', resolvedBy: 'alias' },
+    );
+  }
+});

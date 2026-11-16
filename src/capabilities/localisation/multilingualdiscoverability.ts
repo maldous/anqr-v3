@@ -312,11 +312,9 @@ export function enumerateAndValidate(
 
   const results: PublishedAlternates[] = [];
   for (const [pageType, pageContent] of contentByPageType) {
-    if (hasNoLocalisedContent(state, pageType, pageContent)) {
-      results.push(publishNoContentPageType(state, pageType));
-      continue;
-    }
-    const result = derivePageAlternates(state, pageType, pageContent);
+    const result: PublishResult = hasNoLocalisedContent(state, pageType, pageContent)
+      ? { success: true, alternates: publishNoContentPageType(state, pageType) }
+      : derivePageAlternates(state, pageType, pageContent);
     if (!result.success) {
       throw new Error(`Failed to derive alternates for page type '${pageType}': ${result.error.message}`);
     }
