@@ -46,6 +46,9 @@ Their HTTP, MCP, responsive, accessibility or trust names do not establish a
 deployed endpoint, rendered interface, measured observation or live provider.
 Follow the actual source consumer and owning issue before making such a claim.
 
+The [HTTP and MCP model reference](delivery-models.md) documents their in-process
+inputs, outcomes, audit semantics and unimplemented transport/security boundaries.
+
 ### Analysis
 
 | Source module | Export entries |
