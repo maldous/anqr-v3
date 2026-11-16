@@ -428,3 +428,157 @@ test("qrdecodingvalidation", () => {
   assert.strictEqual(fullReport.passed, vectors.length);
   assert.strictEqual(fullReport.failed, 0);
 });
+
+test("qrdecodingcomposedimageevidence", () => {
+  const validPng = Uint8Array.from(
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAASgAAAEoAQMAAADRyf5aAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAEuSURBVGiB7dXJEoMwDANQ//9Pq9NYchZD6ZGDwpQleXDQ2GngnxFWVlZW71SRYzzE93FcNWvVlKIbJObzBqzmKdc4Px6iZq3uFLjKW6snxQamsbpVZWPJFDuwqhP3/+PgrNWp5hihLjuepq1WlXMjwKhLVaPVqTShTMcbvIFVV7XMXS57WFue1aFUbtt7LE1YdcUMR8vmKaoyrZrCtgrdHqlazSrcmhXZvszZqimwa8XWErS6VAR5KVhFanWoXMv6Y8ZRX7DalYJkk2Y9QofVqWaqWJxitjpVVLfqHvpPiLBqSkMpMuG5aLWpUIZrrAiWpVVTiq4qb2teq6YiNJ/dqzE/YHWhYv6YqNUPpUCBJVyrCwVlyHRBCsCqK7UoSzG3OqZs1dTjsLKysnqf+gBLpRx8B+/dPQAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  );
+  const nonQrPng = Uint8Array.from(
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAASgAAAEoCAAAAADObDPFAAABdklEQVR42u3QMQEAAAgDILV/51nB0wMi0CkuRoEoUaJEiRKFKFGiRIkSJQpRokSJEiUKUaJEiRIlShSiRIkSJUqUKESJEiVKlChEiRIlSpQoUYgSJUqUKFGIEiVKlChRohAlSpQoUaJEIUqUKFGiRCFKlChRokSJQpQoUaJEiRKlQJQoUaJEiUKUKFGiRIkShShRokSJEoUoUaJEiRIlClGiRIkSJUoUokSJEiVKFKJEiRIlSpQoRIkSJUqUKESJEiVKlChRiBIlSpQoUaIQJUqUKFGiECVKlChRokQhSpQoUaJEiVIgSpQoUaJEIUqUKFGiRIlClChRokSJQpQoUaJEiRKFKFGiRIkSJQpRokSJEiUKUaJEiRIlShSiRIkSJUoUokSJEiVKlChEiRIlSpQoUYgSJUqUKFGIEiVKlChRohAlSpQoUaJEKRAlSpQoUaIQJUqUKFGiRCFKlChRokQhSpQoUaJEiUKUKFGiRIkShShRor5aop0DT/Tix4cAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  );
+
+  assert.strictEqual(validPng.length, 412);
+  assert.strictEqual(nonQrPng.length, 431);
+
+  const validResult = capability.decode(validPng);
+  assert.strictEqual(validResult.success, true);
+  if (validResult.success === true) {
+    assert.strictEqual(validResult.confidence, "low");
+    assert.strictEqual(validResult.payloadText, "ANQR QR fixture 2026-09-06");
+    assert.strictEqual(
+      capability.decodeUtf8(validResult.payloadBytes),
+      "ANQR QR fixture 2026-09-06",
+    );
+  }
+
+  const nonQrResult = capability.decode(nonQrPng);
+  assert.strictEqual(nonQrResult.success, false);
+  if (nonQrResult.success === false) {
+    assert.strictEqual(nonQrResult.errorType, "no_qr_found");
+    assert.strictEqual(nonQrResult.payload, null);
+    assert.ok(!("payloadText" in nonQrResult));
+    assert.ok(!("payloadBytes" in nonQrResult));
+  }
+});
+
+function pngChunk(type: string, data: Uint8Array): Buffer {
+  const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+  let crc = 0xffffffff;
+  for (const byte of body) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+  }
+  const chunk = Buffer.alloc(data.length + 12);
+  chunk.writeUInt32BE(data.length, 0);
+  body.copy(chunk, 4);
+  chunk.writeUInt32BE((crc ^ 0xffffffff) >>> 0, chunk.length - 4);
+  return chunk;
+}
+
+function makePng(width: number, height: number, compressed: Uint8Array, colorType = 0, compression = 0): Uint8Array {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = colorType;
+  header[10] = compression;
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk('IHDR', header), pngChunk('IDAT', compressed), pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+function assertPngFailure(bytes: Uint8Array): void {
+  assert.deepStrictEqual(capability.decode(bytes), {
+    success: false, errorType: 'invalid_image_data', stage: 'image_preprocessing', payload: null,
+  });
+}
+
+test('qrdecodingboundsinflationbeforeacceptance', async () => {
+  const { deflateSync } = await import('node:zlib');
+  const oneWhitePixel = deflateSync(Buffer.from([0, 255]));
+  const excessiveRows = deflateSync(Buffer.alloc(1024 * 1024, 0));
+  // Inflated bytes must match the declared two-byte scanline, not just stay
+  // under a generous global allowance. This small input expands well beyond it.
+  assertPngFailure(makePng(1, 1, excessiveRows));
+  assertPngFailure(makePng(1, 1, deflateSync(Buffer.from([0]))));
+  assertPngFailure(makePng(1, 1, Buffer.from([1, 2, 3])));
+  // Hostile IHDR dimensions are refused before their implied allocation.
+  for (const [width, height] of [[0, 1], [1, 0], [4097, 1], [1, 4097], [4096, 1025], [0xffffffff, 0xffffffff]]) {
+    assertPngFailure(makePng(width, height, oneWhitePixel));
+  }
+  const oversizedInput = new Uint8Array(16 * 1024 * 1024 + 1);
+  oversizedInput.set(makePng(1, 1, oneWhitePixel));
+  assertPngFailure(oversizedInput);
+  assertPngFailure(makePng(1, 1, oneWhitePixel, 0, 1));
+});
+
+test('qrdecodingopaqueinputandstatelessrefusal', async () => {
+  const { deflateSync } = await import('node:zlib');
+  const white = makePng(1, 1, deflateSync(Buffer.from([0, 255])));
+  const before = white.slice();
+  assert.deepStrictEqual(capability.decode(white), {
+    success: false, errorType: 'no_qr_found', stage: 'symbol_detection', payload: null,
+  });
+  assert.deepStrictEqual(white, before);
+  assertPngFailure(white.subarray(0, white.length - 12));
+  assertPngFailure(Buffer.concat([white, Buffer.from([0])]));
+  // Nonopaque RGBA is deliberately unsupported rather than treating hidden
+  // RGB values as visible QR modules.
+  assertPngFailure(makePng(1, 1, deflateSync(Buffer.from([0, 0, 0, 0, 0])), 6));
+  assertPngFailure(makePng(1, 1, deflateSync(Buffer.from([5, 255]))));
+  assert.deepStrictEqual(capability.decode(white).success, false);
+});
+
+test('qrdecodingadoptionpreservesexistinghelpers', () => {
+  const bytes = new Uint8Array([1, 2, 3]);
+  const metadata = capability.createDecoderMetadata();
+  assert.strictEqual(metadata.algorithm, 'qrcodes');
+  const success = capability.createDecodingSuccess({ payloadText: 'x', payloadBytes: bytes, confidence: 'high', decoderMetadata: metadata });
+  assert.strictEqual(success.payloadBytes, bytes);
+  assert.strictEqual(success.decoderMetadata, metadata);
+  assert.strictEqual(success.confidence, 'high');
+  assert.throws(() => capability.decodeUtf8(new Uint8Array([0xff])));
+  assert.deepStrictEqual(capability.createStructuredAppendInfo(1, 2, 0x55), { sequenceIndex: 1, totalCount: 2, parity: 0x55 });
+});
+
+test('qrdecodingrequiresordereduniquecorechunks', async () => {
+  const { deflateSync } = await import('node:zlib');
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(1, 0); header.writeUInt32BE(1, 4);
+  header[8] = 1; header[9] = 3;
+  const ihdr = pngChunk('IHDR', header);
+  const palette = pngChunk('PLTE', Buffer.from([255, 255, 255]));
+  const opacity = pngChunk('tRNS', Buffer.from([255]));
+  const idat = pngChunk('IDAT', deflateSync(Buffer.from([0, 0])));
+  const end = pngChunk('IEND', Buffer.alloc(0));
+  const ancillary = pngChunk('tEXt', Buffer.from('label\0value'));
+  const image = (...chunks: Buffer[]) => Buffer.concat([signature, ...chunks]);
+  const wellFormed = image(ihdr, palette, opacity, idat, end);
+  assert.deepStrictEqual(capability.decode(wellFormed), {
+    success: false, errorType: 'no_qr_found', stage: 'symbol_detection', payload: null,
+  });
+  for (const malformed of [
+    image(ihdr, palette, palette, idat, end),
+    image(ihdr, idat, palette, end),
+    image(ihdr, palette, idat, palette, end),
+    image(ihdr, palette, idat, ancillary, pngChunk('IDAT', Buffer.alloc(0)), end),
+    image(ihdr, palette, idat, opacity, end),
+    image(ihdr, palette, opacity, opacity, idat, end),
+    image(ihdr, palette, pngChunk('tRNS', Buffer.alloc(0)), idat, end),
+    image(ihdr, pngChunk('PLTE', Buffer.alloc(9)), idat, end),
+  ]) assertPngFailure(malformed);
+  // A later palette must not replace the pixels' original interpretation.
+  assertPngFailure(image(ihdr, palette, idat, pngChunk('PLTE', Buffer.from([0, 0, 0])), end));
+  const grayHeader = Buffer.from(header); grayHeader[8] = 8; grayHeader[9] = 0;
+  assertPngFailure(image(pngChunk('IHDR', grayHeader), palette, idat, end));
+  // Multiple consecutive IDAT chunks remain supported, including zero-length ones.
+  assert.deepStrictEqual(capability.decode(image(ihdr, palette, idat, pngChunk('IDAT', Buffer.alloc(0)), end)), capability.decode(wellFormed));
+});
