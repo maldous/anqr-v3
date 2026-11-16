@@ -292,9 +292,9 @@ export function validateInvocation(
 // --- Surface invocation functions ---
 
 /**
- * Invokes the HTTP surface. Accepts repeated programmatic invocation and returns a
- * stable result structure across calls. Caller payloads are never retained; the
- * result echoes only the surfaceId, capabilityId and nonce.
+ * Validates the declared HTTP model surface and returns its in-process result.
+ * The result includes a shallow copied/frozen input payload, not only identifiers.
+ * This helper does not call audit, perimeter or readiness checks or serve a route.
  */
 export function invokeHttpSurface(
   invocation: ProgrammaticInvocation,
@@ -453,9 +453,9 @@ export function evaluateReadiness(state: ReadinessState): ReadinessOutcome {
 // --- Composite workflow function ---
 
 /**
- * Exercises repeated invocation and asserts the result structure is stable.
- * The mutation function accepts the audit function and does not mutate when it
- * throws or returns a failure. Returns an array of outcomes in invocation order.
+ * Invokes the HTTP helper in input order and audits each successful result using
+ * a fresh zero audit state. Returns a frozen array; it does not assert stability.
+ * Callback exceptions propagate and callback effects cannot be rolled back.
  */
 export function exerciseRepeatedInvocation(
   invocations: ReadonlyArray<ProgrammaticInvocation>,
@@ -484,7 +484,8 @@ export function exerciseRepeatedInvocation(
 }
 
 /**
- * Asserts that two outcomes are structurally equal under the stable result shape.
+ * Compares surfaceId/capabilityId/nonce for successes, or error code for failures.
+ * Payload, issuedAt and error message are ignored; this is not full object equality.
  */
 export function assertStableStructure(
   a: ProgrammaticGenerationOutcome,
