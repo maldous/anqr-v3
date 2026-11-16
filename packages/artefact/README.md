@@ -10,6 +10,15 @@ The application accepts supplied values, validates their combination, builds a
 QR symbol, checks its internal grid against the requested text, and produces a
 frame. Exporting that frame to encoded bytes is a separate operation.
 
+## Find what you need
+
+- [Produce and export a PNG](#produce-and-export-a-png): runnable example.
+- [Inputs and defaults](#inputs-and-refusal-results): choose supplied values.
+- [Success and refusal results](#success-and-refusal-results): handle both operations.
+- [Adapters and ports](#adapters-and-interface-boundaries): select compatible interfaces.
+- [Evidence limits](#what-the-evidence-establishes): distinguish internal checks from final-file observations.
+- [Source checks](#source-checks): use the pinned toolchain.
+
 ## Produce and export a PNG
 
 The following imports are relative to a TypeScript file at the repository root.
@@ -90,6 +99,8 @@ rather than silently changing a requested setting.
 | `quietZoneModules` | Integer from 0 to 16; default 4. Acceptance of a value is not independent scan qualification. |
 | Colours | Six-digit `#RRGGBB`; defaults black foreground and white background. The join enforces a contrast-ratio floor of 4.5. |
 
+## Success and refusal results
+
 Both operations return a discriminated `ok` result. Refusals are:
 
 - `inadmissible`: a list of parameter-specific join failures.
@@ -141,6 +152,8 @@ The [selected SVG output evidence](../../docs/validation/svg-output-633f023/READ
 separately records final files and independent decoding for its stated source
 and payload/ECC matrix. Preserve that historical evidence and its limitations.
 It does not qualify every adapter, device, browser or arbitrary image.
+
+## Source checks
 
 Run source checks from the repository root using the
 [documented toolchain](../../docs/toolchain.md): `npm run typecheck`, `npm test`
