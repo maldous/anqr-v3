@@ -24,3 +24,20 @@ host admission in that environment. ANQR's source, toolchain, product checks
 and acceptance remain governed by this repository and require no UIF
 installation.
 
+
+## Task-specific guidance and capability discovery
+
+Use [agent capability routing](docs/agent-capabilities.md) for repository
+review, presentation and provider tooling. Resolve relevant skills and plugins
+from the actual executing environment, including its repository-local
+`.agents/skills` when present; read the applicable SKILL.md before use. Record
+readability, discoverability, successful invocation and authentication separately.
+Never infer a working tool, permission or product qualification from a link.
+
+Use the existing shared repository-docs-review workflow for revision-bound
+documentation work where available. For actual presentation work, use the
+official Impeccable guidance with the selected target and preserve the approved
+brief and QR contracts. Verify Context7, language/format/security guidance and
+Cloudflare/Netlify capabilities only when relevant to the task. Record precise
+availability gaps without adding universal release gates or runtime dependencies.
+Keep current writer/publisher custody and accepted check receipts intact.
