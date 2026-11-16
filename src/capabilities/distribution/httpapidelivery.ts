@@ -88,7 +88,8 @@ export function createDeliveryPayload(
 // --- Validation functions ---
 
 export function validatePayload(payload: DeliveryPayload): DeliveryError | null {
-  if (payload.size < MIN_PAYLOAD_SIZE || payload.size > MAX_PAYLOAD_SIZE) {
+  // Bounds comparisons alone admit NaN; request measurements must be finite.
+  if (!Number.isFinite(payload.size) || payload.size < MIN_PAYLOAD_SIZE || payload.size > MAX_PAYLOAD_SIZE) {
     return {
       code: ERROR_CODES.CLIENT_ERROR,
       detail: `Size must be between ${MIN_PAYLOAD_SIZE} and ${MAX_PAYLOAD_SIZE}`,
@@ -125,6 +126,14 @@ export function validatePayload(payload: DeliveryPayload): DeliveryError | null 
       code: ERROR_CODES.CLIENT_ERROR,
       detail: `Format must be one of: ${ALLOWED_FORMATS.join(', ')}`,
       parameter: 'format'
+    };
+  }
+
+  if (!Number.isFinite(payload.margin)) {
+    return {
+      code: ERROR_CODES.CLIENT_ERROR,
+      detail: 'Margin must be a finite number',
+      parameter: 'margin'
     };
   }
 
