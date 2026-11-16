@@ -31,6 +31,8 @@ All parsed export statement shapes were accounted for.
   injected container to the selected format and preserve its refusal behavior.
 - The [artifact guide](../../packages/artefact/README.md#adapters-and-interface-boundaries)
   distinguishes application result types from similarly named declaration-only ports.
+- The [PNG input reference](png-input.md) documents the separate image decoder's
+  result contract, admitted subset and parser/resource limits.
 
 These are source entry points, not a server, camera pipeline, separately published
 npm package or permission to import the retained historical application.
