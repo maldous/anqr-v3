@@ -33,6 +33,8 @@ All parsed export statement shapes were accounted for.
   distinguishes application result types from similarly named declaration-only ports.
 - The [PNG input reference](png-input.md) documents the separate image decoder's
   result contract, admitted subset and parser/resource limits.
+- The [container encoding reference](container-exports.md) distinguishes direct
+  PNG/SVG/GIF port results, rejection conditions and format-specific limits.
 
 These are source entry points, not a server, camera pipeline, separately published
 npm package or permission to import the retained historical application.
