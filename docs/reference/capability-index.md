@@ -129,6 +129,8 @@ perimeter and readiness behavior without implying hosted or authenticated servic
 
 The [performance-budget model reference](performance-budget-model.md) explains
 classification, sample validation, cumulative readiness and their different limits.
+The [deterministic-output model reference](deterministic-output-model.md) separates
+seeded bytes and checksum helpers from real image encoding and byte comparison.
 
 | Source module | Export entries |
 | --- | ---: |
