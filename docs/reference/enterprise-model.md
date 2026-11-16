@@ -1,8 +1,8 @@
 # Enterprise programmatic-generation model
 
 This reference describes [programmaticgeneration.ts](../../src/capabilities/enterprise/programmaticgeneration.ts)
-at accepted source `cd5297f5c75a992e68e260542b63b68bb250b645`, tree
-`115bfeb0a18ff1fcf944180bfb4c64747c14ae51`. Its functions are in-process
+at accepted source `0cb1aa91f11cdc302187ea31f98caf345db9fa8c`, tree
+`562e8eae532139d5c9756d4a1a58f6f0e8ac6b1c`. Its functions are in-process
 capability models. They do not register HTTP routes, start an MCP server, generate
 a QR image, authenticate a caller or enforce a deployed enterprise perimeter.
 The separate [HTTP/MCP delivery models](delivery-models.md) are not automatically
@@ -38,9 +38,8 @@ converted to the outcome union.
 On success, `validateInvocation` returns `success: true`, the selected IDs,
 the original nonce, `payload: Object.freeze({ ...invocation.input })` and
 `issuedAt: 0`. The payload **does contain the input's enumerable own values**.
-The HTTP helper's source comment saying that the result echoes only identifiers
-must not be read as a payload-redaction guarantee. The copy and freeze are
-shallow: nested objects remain shared, and this is not deep validation,
+It is not an identifier-only response or a payload-redaction guarantee. The copy
+and freeze are shallow: nested objects remain shared, and this is not deep validation,
 redaction, isolation or a retention policy for a consumer.
 
 `invokeHttpSurface(invocation, nowMs)` first requires a `pg-http-` surface prefix;

@@ -1,8 +1,8 @@
 # Documentation inventory and dispositions
 
 This is the documentation map for accepted ANQR source at commit
-`6bab7dcfef5fa0d89b020cda30ccd72df1b791aa`, tree
-`b32bf2caa39c7b2279d4ecdd85614a9de8b0ba3b`. It records the inspected snapshot,
+`0cb1aa91f11cdc302187ea31f98caf345db9fa8c`, tree
+`562e8eae532139d5c9756d4a1a58f6f0e8ac6b1c`. It records the inspected snapshot,
 not a claim that future branches, the public site or historical candidates are
 equivalent. Refresh the affected rows when source or document ownership changes.
 
@@ -15,7 +15,7 @@ This map introduces no product dependency, release gate or access permission.
 
 ## Inventory method and exact document set
 
-Committed Git enumeration found 145 tracked paths: ten Markdown documents,
+Committed Git enumeration found 147 tracked paths: twelve Markdown documents,
 59 TypeScript source modules (39 capability and 20 artifact-package modules),
 42 test files (39 conformance and three package tests), two optional validation
 scripts, three SVG-evidence JSON records and 24 SVG/raster artifacts. The other
@@ -34,10 +34,12 @@ Git blob IDs make the inspected bytes traceable without copying their contents.
 | [AGENTS.md](../AGENTS.md) | Coding agents: source checks, toolchain, optional maintenance and capability routing. | `c4d3b70320edfc2251ea7172720a6f7f351415b8` |
 | [README.md](../README.md) | Developers and evaluators: repository scope, selected artifact package, example and product limits. | `4810676c1eee9793da258f0008cff86fd1cd6358` |
 | [Agent capability routing](agent-capabilities.md) | Agents/operators: host-specific discovery, permitted use, recovery and publication boundaries. | `e074592a1d8a8184f0dd9dd3fd7c5ab17f535490` |
-| [Capability and package index](reference/capability-index.md) | Developers/reviewers: all 59 source entry points, declaration shapes and related tests. | `7bab48b2087a64338b30cd0694083bcd74c68b78` |
-| [Documentation inventory](documentation-map.md) | Maintainers/reviewers: category inventory, gap ownership and explicit peer-interface comparison. | `6af6ff435dfb879f4f0bc1d29b56f38c7da6020b` |
+| [Capability and package index](reference/capability-index.md) | Developers/reviewers: all 59 source entry points, declaration shapes and related tests. | `78b1552cb4ddc70a79e4f5d1beeb9b0fc528be8f` |
+| [Documentation inventory](documentation-map.md) | Maintainers/reviewers: category inventory, gap ownership and explicit peer-interface comparison. | `8b1bc1dda5cdc1fc41c18ab88c7f6b782c7e55ee` |
 | [PNG input reference](reference/png-input.md) | Consumers: exact decoder result shape, admitted subset and parser/resource limits. | `3e9b53e98c7e0fdfd5460b0c37a08880c755bb5c` |
 | [Container encoding reference](reference/container-exports.md) | Consumers: direct PNG/SVG/GIF port results, rejection and format/resource boundaries. | `4c88bff00b5bf9ad5b7016ae9367b04d58e54b0d` |
+| [HTTP and MCP delivery models](reference/delivery-models.md) | In-process consumers: exact validation, result and audit behavior; no listener, wire service or security implementation. | `652e7655a1c7fd1b24118bd4c13c8153d64b6fe3` |
+| [Enterprise model](reference/enterprise-model.md) | Consumers: invocation payload copies, audit/perimeter/readiness and repeated-call limits; not deployed enterprise enforcement. | `383ca0fb9279bdec476e01707248861dc44b358f` |
 | [Toolchain](toolchain.md) | Contributors: exact Node/npm/development dependencies and supported check commands. | `0f6d0a74aaa85801aad5c1141e8182c8b14f2cf8` |
 | [SVG evidence guide](validation/svg-output-633f023/README.md) | Reviewers: historical final-file decoding matrix, source manifests and optional reproduction. | `e2c49c5a7827d9c3e8ac4329b0522d8c8a4dcdf1` |
 | [Artifact package guide](../packages/artefact/README.md) | In-process consumers: produce/export results, inputs, refusals, adapters and unsupported assumptions. | `88f208a9ef3a93c25f7fe81c31bc2aa50c984d11` |
@@ -58,7 +60,7 @@ as a new artificial gate.
 | Architecture and ADRs | Package guide explains the in-process application, injected ports and separate capability models. No standalone ADR/architecture directory. | The package guide plus source index is the current architecture entry point. It is not an adopted whole-product architecture or a fabricated ADR history. Reserved historical-source documentation remains UIF-215; whole-product architecture acceptance remains UIF-205. |
 | Code and interface discovery | Index covers all 59 modules; its 1,329 exported declaration/re-export entries are declaration shapes, not unique callable APIs or semantic coverage. Source comments and types remain the detailed contract. | PR27 delivered complete path-level discovery. Correctness and usability of a particular interface still require reading its source/consumer and applicable tests. |
 | Artifact consumer API and example | Package guide documents required inputs, separate production/export checks, three refusal kinds and injected dependencies. App result types differ from unimplemented port-contract shapes. | Keep the qualified example and explicit exception/untrusted-input limits. Separate PNG input and direct container references document their different contracts. No separately published package manifest or npm distribution exists. |
-| HTTP, MCP and enterprise delivery | Named capability modules model validation, state and result contracts. There is no server entry point, listening transport or deployment configuration in this edition. | Do not publish inferred endpoint/API/MCP instructions. [UIF-205](https://linear.app/maldous/issue/UIF-205) retains broader product-journey acceptance; [UIF-270](https://linear.app/maldous/issue/UIF-270) retains actual release/source/publisher qualification. |
+| HTTP, MCP and enterprise delivery | Separate HTTP/MCP and enterprise references document the named capability modules' validation, result, audit and perimeter limits. There is no server entry point, listening transport or deployment configuration in this edition. | PR36/37 delivered those in-process consumer guides; PR38 corrected three source comments without changing executable bytes. Do not publish inferred endpoint/API/MCP instructions. [UIF-205](https://linear.app/maldous/issue/UIF-205) retains broader product-journey acceptance; [UIF-270](https://linear.app/maldous/issue/UIF-270) retains actual release/source/publisher qualification. |
 | Phishing and reputation assessment | The selected offline URL-reputation contract is a distinct scope, not a generic HTTP/MCP delivery implementation or a selected external provider. | [UIF-209](https://linear.app/maldous/issue/UIF-209) owns that contract; [UIF-210](https://linear.app/maldous/issue/UIF-210) has the genuine approved-contract prerequisite. Do not infer reputation safety from decoding, delivery or an unknown result. |
 | CLI and runtime configuration | Source-check commands and TypeScript/compiler configuration exist. Optional SVG scripts accept output directories. No product CLI, app environment-variable schema or service startup command is supplied. | Record this bounded non-applicability. Do not invent a CLI manual or credentials to make a guide executable. |
 | User experience and accessibility | Real delivered reading surfaces are repository/package guides and static validation artifacts. Capability names for responsive, accessible and localized experiences are not a browser interface. | [UIF-262](https://linear.app/maldous/issue/UIF-262) owns actual presentation changes and measured rendered evidence; absent mobile/frontend journeys remain explicit limits. |
@@ -77,11 +79,22 @@ as a new artificial gate.
 - PR26's agent guidance and PR27's source index have exact independent static
   reviews and source-branch environment-check receipts in UIF-265. Neither is an
   application build or a provider publication.
-- PR28 delivered the guide navigation with independent desktop-only rendered
-  review; narrow/mobile behavior remains unmeasured. PR29/31 delivered this
-  inventory and corrected offline-reputation ownership. PR30/32 added the PNG
-  input and direct container references with independent static review. These
-  are documentation increments, not new image/animation or runtime checks.
+- PR28 delivered guide navigation at source
+  `da0f48f1b4fe457b2fc150dc74e997f5b0fc62ed`: independent desktop rendered
+  review at 1180×757 and a later owner supplemental check at measured CSS
+  312×675 and 390×844. Navigation and contained table/code scrolling were
+  exercised; physical-device, touch, assistive-technology, motion and contrast
+  qualification remain absent. The package-guide blob is unchanged here. These
+  are retained bounded observations, not a new rendering run or mobile acceptance.
+- PR29/31/33 delivered and refreshed this inventory/ownership map. PR30/32 added
+  the PNG input and direct container references; PR36/37 added the HTTP/MCP and
+  enterprise model references, each independently source-reviewed. PR38 corrected
+  only three enterprise JSDoc blocks; executable bytes and tests are unchanged.
+  These documentation increments are not image/animation or runtime checks.
+- PR34/35 integrated finite-number admission corrections in the HTTP/MCP models.
+  Their exact-branch typechecks and only five new HTTP/six new MCP regression
+  cases passed on Foo. They did not rerun or replace PR25's full-suite receipt,
+  instantiate listening services or qualify actual QR generation/production.
 - The library/capability source and documentation are delivered through GitHub.
   The public web application, hosted API/MCP journeys, arbitrary image decoding,
   mobile/store channels and camera/accessibility/device behavior are not qualified
