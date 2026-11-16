@@ -113,3 +113,44 @@ test("multilingualdiscoverabilityvalidation", () => {
   const brokenState = capability.validateAlternates(brokenAlternates);
   assert.equal(brokenState, "missing_default");
 });
+
+test("multilingualdiscoverability audits no-content results before emission", () => {
+  const state = capability.createLocalisationState(["en"], "en");
+  const content = [
+    capability.createPageContent("article", "fr", "/fr/article"),
+    capability.createPageContent("landing", "en", "/en/landing"),
+  ];
+  const originalContent = content.map(item => ({ ...item }));
+
+  for (const rejection of ["missing_default", "broken_reference", "empty", "throw"] as const) {
+    const audited: string[] = [];
+    const result = capability.enumerateAndValidate(state, content, alternates => {
+      audited.push(alternates.pageType);
+      if (alternates.pageType === "article") {
+        if (rejection === "throw") throw new Error("audit refused");
+        return rejection;
+      }
+      return capability.validateAlternates(alternates);
+    });
+    assert.deepEqual(audited, ["article", "landing"]);
+    assert.deepEqual(result.map(item => item.pageType), ["landing"]);
+    assert.deepEqual(content, originalContent);
+    assert.deepEqual(state, { declaredLocales: ["en"], defaultLocale: "en" });
+  }
+});
+
+test("multilingualdiscoverability preserves an explicitly accepted no-content result", () => {
+  const state = capability.createLocalisationState(["en"], "en");
+  const content = [capability.createPageContent("article", "fr", "/fr/article")];
+  const audited: capability.PublishedAlternates[] = [];
+  const result = capability.enumerateAndValidate(state, content, alternates => {
+    audited.push(alternates);
+    return "valid";
+  });
+
+  assert.equal(audited.length, 1);
+  assert.equal(result[0], audited[0]);
+  assert.deepEqual(result, [{
+    pageType: "article", canonical: "", alternates: [], defaultAlternate: "",
+  }]);
+});
