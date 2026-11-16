@@ -175,6 +175,14 @@ export function publishTranslation(translation: Translation): TransitionResult {
     };
   }
 
+  const reviewStatus = translation.reviewStatus;
+  if (reviewStatus !== 'approved') {
+    return {
+      success: false,
+      error: `Translation "${translation.id}" has not been approved for publication. Review status: ${reviewStatus}`,
+    };
+  }
+
   // Validate preservation rules before publication
   const preservation = validatePreservation(translation);
   if (!preservation.valid) {
@@ -189,6 +197,7 @@ export function publishTranslation(translation: Translation): TransitionResult {
     translation: {
       ...translation,
       state: 'publication',
+      reviewStatus,
       publishedAt: new Date().toISOString(),
     },
   };
@@ -295,5 +304,5 @@ export function validateProposal(translation: Translation): boolean {
  * Validates that a translation can be published (must be reviewed and merged).
  */
 export function validatePublication(translation: Translation): boolean {
-  return translation.state === 'merge';
+  return translation.state === 'merge' && translation.reviewStatus === 'approved';
 }

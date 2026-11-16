@@ -2,6 +2,39 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as capability from "../../../src/capabilities/localisation/communitytranslationcontribution.ts";
 
+test("publication refuses merged translations without approved review", () => {
+  const content = [...capability.PLACEHOLDER_TOKENS, ...capability.LINK_SYNTAX_TOKENS].join(" ");
+  for (const reviewStatus of [undefined, "pending", "rejected"] as const) {
+    const translation: capability.Translation = {
+      ...capability.proposeTranslation("unapproved", content, "2026-11-16T00:00:00Z"),
+      state: "merge",
+      ...(reviewStatus === undefined ? {} : { reviewStatus }),
+    };
+    const before = { ...translation };
+    assert.equal(capability.validatePublication(translation), false);
+    const published = capability.publishTranslation(translation);
+    assert.equal(published.success, false);
+    if (!published.success) assert.match(published.error, /has not been approved for publication/);
+    assert.deepEqual(translation, before);
+  }
+});
+
+test("publication retains the approved review status it checked", () => {
+  const content = [...capability.PLACEHOLDER_TOKENS, ...capability.LINK_SYNTAX_TOKENS].join(" ");
+  let reads = 0;
+  const translation: capability.Translation = {
+    ...capability.proposeTranslation("approved", content, "2026-11-16T00:00:00Z"),
+    state: "merge",
+    get reviewStatus() { return reads++ === 0 ? "approved" : "rejected"; },
+  };
+  const published = capability.publishTranslation(translation);
+  assert.equal(published.success, true);
+  if (published.success) {
+    assert.equal(published.translation.state, "publication");
+    assert.equal(published.translation.reviewStatus, "approved");
+  }
+});
+
 test("communitytranslationcontributioncontracts", () => {
   const contract = capability.getTranslationContract();
 

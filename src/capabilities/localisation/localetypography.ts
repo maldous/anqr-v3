@@ -209,11 +209,26 @@ export function loadFontWithAudit(
   state: TypographyState,
   audit: (font: FontResource, state: TypographyState) => void = auditFontLoad
 ): TypographyState {
+  const outcomeFont = outcome.font;
+  if (outcomeFont !== font) {
+    throw new Error('Font load outcome must match the requested font.');
+  }
+
   // Audit must precede mutation - audit throws on failure
   audit(font, state);
-  
+
+  // Keep the checked identity even when the supplied outcome uses getters.
+  const checkedOutcome: FontLoadOutcome = outcome.success
+    ? { success: true, font: outcomeFont }
+    : {
+      success: false,
+      font: outcomeFont,
+      get fallback() { return outcome.fallback; },
+      get reason() { return outcome.reason; },
+    };
+
   // Only proceed with mutation if audit passed
-  return processFontLoadOutcome(outcome, state);
+  return processFontLoadOutcome(checkedOutcome, state);
 }
 
 /**
