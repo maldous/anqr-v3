@@ -78,6 +78,9 @@ inputs, outcomes, audit semantics and unimplemented transport/security boundarie
 
 ### Enterprise
 
+The [enterprise model reference](enterprise-model.md) describes invocation, audit,
+perimeter and readiness behavior without implying hosted or authenticated services.
+
 | Source module | Export entries |
 | --- | ---: |
 | [programmaticgeneration](../../src/capabilities/enterprise/programmaticgeneration.ts) | 42 |
