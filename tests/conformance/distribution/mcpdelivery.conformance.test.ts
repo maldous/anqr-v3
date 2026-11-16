@@ -256,3 +256,99 @@ test("mcpdeliveryvalidation", () => {
     assert.equal(finalCheck.aligned, true);
   }
 });
+
+test("MCP finite measurement guard rejects nonfinite declared numeric values", () => {
+  const config = capability.createDefaultConfig();
+  for (const tool of config.capabilities.tools) {
+    for (const field of ['size', 'margin'] as const) {
+      for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+        const result = capability.validateToolInput({ data: 'payload', format: 'PNG', [field]: value }, tool);
+        assert.equal(result.success, false);
+        assert.equal(result.field, field);
+      }
+    }
+  }
+});
+
+test("MCP finite measurement guard rejects default generation before placeholder success", () => {
+  const config = capability.createDefaultConfig();
+  for (const generate of [capability.generateBasicQR, capability.generateAdvancedQR]) {
+    for (const field of ['size', 'margin'] as const) {
+      const audit: capability.ToolValidationResult[] = [];
+      const result = generate({ data: 'payload', format: 'PNG', [field]: Number.NaN }, config, value => audit.push(value));
+      assert.equal(result.success, false);
+      if (!result.success) assert.equal(result.field, field);
+      assert.equal((result as { artefact?: string }).artefact, undefined);
+      assert.equal(audit.length, 1);
+      assert.equal(audit[0].success, false);
+      assert.equal(audit[0].field, field);
+    }
+  }
+});
+
+test("MCP finite measurement guard also applies when numeric declarations are omitted", () => {
+  const original = capability.createDefaultConfig();
+  const config: capability.Config = {
+    ...original,
+    capabilities: {
+      ...original.capabilities,
+      tools: original.capabilities.tools.map(tool => ({
+        ...tool, parameters: tool.parameters.filter(param => param.name !== 'size' && param.name !== 'margin'),
+      })),
+    },
+  };
+  for (const generate of [capability.generateBasicQR, capability.generateAdvancedQR]) {
+    for (const field of ['size', 'margin'] as const) {
+      const audit: capability.ToolValidationResult[] = [];
+      const result = generate({ data: 'payload', format: 'PNG', [field]: Number.NaN }, config, value => audit.push(value));
+      assert.equal(result.success, false);
+      if (!result.success) assert.equal(result.field, field);
+      assert.equal((result as { artefact?: string }).artefact, undefined);
+      // Existing callbacks report declared-tool validation, not every generation check.
+      assert.equal(audit.length, generate === capability.generateBasicQR ? 1 : 2);
+      assert.equal(audit.every(value => value.success), true);
+    }
+  }
+});
+
+test("MCP finite measurement guard covers an unbounded declared numeric parameter", () => {
+  const tool = capability.createTool('count-tool', 'Synthetic numeric validation only', [
+    { name: 'count', type: 'number', required: true },
+  ]);
+  for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    const result = capability.validateToolInput({ count: value }, tool);
+    assert.equal(result.success, false);
+    assert.equal(result.field, 'count');
+  }
+  assert.deepEqual(capability.validateToolInput({ count: 0.5 }, tool), { success: true });
+});
+
+test("MCP finite measurement guard preserves finite fractions and omitted optionals", () => {
+  const config = capability.createDefaultConfig();
+  for (const generate of [capability.generateBasicQR, capability.generateAdvancedQR]) {
+    for (const input of [
+      { data: 'payload', format: 'PNG', size: 256.5, margin: 0.5 },
+      { data: 'payload', format: 'PNG' },
+    ]) {
+      const audit: capability.ToolValidationResult[] = [];
+      const result = generate(input, config, value => audit.push(value));
+      assert.equal(result.success, true);
+      assert.equal(audit.length, generate === capability.generateBasicQR ? 1 : 2);
+      assert.equal(audit.every(value => value.success), true);
+    }
+  }
+});
+
+test("MCP finite measurement guard preserves earlier type and range refusal details", () => {
+  const config = capability.createDefaultConfig();
+  const tool = config.capabilities.tools.find(value => value.name === capability.BASIC_TOOL_NAME)!;
+  const cases: [unknown, string, string][] = [
+    [{ data: 'x', format: 'PNG', size: '512' }, 'size', "Field 'size' must be a number."],
+    [{ data: 'x', format: 'PNG', size: Number.POSITIVE_INFINITY }, 'size', "Field 'size' must be at most 4096."],
+    [{ data: 'x', format: 'PNG', margin: Number.NEGATIVE_INFINITY }, 'margin', "Field 'margin' must be at least 0."],
+    [{ data: 'x', format: 42, size: Number.NaN }, 'format', "Field 'format' must be a string."],
+  ];
+  for (const [input, field, message] of cases) {
+    assert.deepEqual(capability.validateToolInput(input, tool), { success: false, field, message });
+  }
+});

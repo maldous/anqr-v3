@@ -263,6 +263,16 @@ export function validateToolInput(
         };
       }
 
+      // Retain existing range-error precedence, including for infinities.
+      // NaN bypasses comparisons; unbounded numeric parameters also need this.
+      if (param.type === 'number' && typeof value === 'number' && !Number.isFinite(value)) {
+        return {
+          success: false,
+          field: param.name,
+          message: `Field '${param.name}' must be a finite number.`
+        };
+      }
+
       if (param.pattern !== undefined && typeof value === 'string') {
         const re = new RegExp(param.pattern);
         if (!re.test(value)) {
@@ -574,7 +584,9 @@ export function generateBasicQR(
   }
 
   if (record.size !== undefined) {
-    if (record.size < config.capabilities.sizeRange.min ||
+    // A custom tool may omit a numeric declaration; generation still owns its range.
+    if ((typeof record.size === 'number' && !Number.isFinite(record.size)) ||
+        record.size < config.capabilities.sizeRange.min ||
         record.size > config.capabilities.sizeRange.max) {
       return {
         success: false,
@@ -585,7 +597,8 @@ export function generateBasicQR(
   }
 
   if (record.margin !== undefined) {
-    if (record.margin < config.capabilities.marginRange.min ||
+    if ((typeof record.margin === 'number' && !Number.isFinite(record.margin)) ||
+        record.margin < config.capabilities.marginRange.min ||
         record.margin > config.capabilities.marginRange.max) {
       return {
         success: false,
