@@ -502,26 +502,12 @@ function optionsEqual(
 // --- Public API: creation, proof, and round-trip enumeration ---
 
 /**
- * The audit function used to prove round-trip correctness. It is supplied to
- * `createArtefact` so the proof step can be observed independently of the
- * encoder. The function decodes the artefact and compares it against the
- * original request.
+ * Proves the same embedded-body round trip as the canonical default audit.
+ * This inspects the body after `::`, not the artefact's payload shadow.
+ * It does not authenticate the checksum prefix or validate emitted QR bytes.
  */
 export function proveRoundTrip(options: CreationOptions, artefact: Artefact): ValidationOutcome {
-  let decoded;
-  try {
-    decoded = decodeArtefact(artefact.payload.kind + ':' + artefact.payload.content);
-  } catch {
-    // The decoder uses the raw body; recompute by reading the artefact body field.
-    // Artefact body is reconstructable from its fields, but here we read it
-    // through the public field `payload` which holds the original payload only.
-    // Use the artefact's encoded representation stored alongside the checksum.
-    return failure('ROUNDTRIP_MISMATCH', 'Decoder could not parse the artefact body.');
-  }
-  if (!optionsEqual(options, decoded)) {
-    return failure('ROUNDTRIP_MISMATCH', 'Decoded artefact does not match the original request.');
-  }
-  return { success: true };
+  return defaultAudit(options, artefact);
 }
 
 function artefactBody(artefact: Artefact): string {
