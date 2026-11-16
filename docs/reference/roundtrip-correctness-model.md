@@ -46,12 +46,14 @@ name. Neither validates CSS syntax, contrast, geometry or scan safety. Animation
 checks a boolean enabled flag and one of `slow`, `normal`, `fast`; it does not
 render frames or measure their timing.
 
-An overlay logo needs nonempty string data and numeric size greater than zero
-under the current comparison. The validator does **not** require finite size:
-`NaN` is not caught by `size <= 0`, and positive infinity is not excluded. The
-decoder rejects a parsed `NaN`, and the canonical comparison may refuse a
-non-round-tripping request, but that is not strict finite-input validation.
+An overlay logo needs nonempty string data and a primitive numeric size that
+is finite and greater than zero. Overlay validation refuses `NaN`, both
+infinities, zero and negative sizes as `INVALID_OVERLAY`. When that check is
+reached, creation stops before encoding or audit. Positive finite fractions
+remain valid model values; this is not a pixel-geometry limit.
 Frame label/color strings must be nonblank; logo data is not decoded as an image.
+Direct decoding still has its separate, weaker checks described below; it does
+not acquire creation's finite-size validation merely by returning an overlay.
 
 These are typed TypeScript helpers, not a complete runtime schema for arbitrary
 objects. Nulls, wrong object shapes, getters or serialization errors may throw.
@@ -132,8 +134,11 @@ checks the declared matrix, selected decoded facets, failure/throwing audit
 handling and kind/ECC/customization coverage. The
 [new public-proof contracts](../../tests/conformance/quality/roundtrip-proof.conformance.test.ts)
 exercise the embedded-body helper's positive and negative boundaries, including
-its deliberate non-authentication limits. These descriptions identify source
-oracles, not a new test run. Consult the exact issue/PR qualification receipts
+its deliberate non-authentication limits. The
+[finite-admission contracts](../../tests/conformance/quality/roundtrip-admission.conformance.test.ts)
+cover nonfinite refusal before audit, preserved finite fractions, other overlays
+and validation priority. These descriptions identify source oracles, not a new
+test run. Consult the exact issue/PR qualification receipts
 for executed revisions and outcomes. No source test or this reference completes
 independent image decoding, CRC/Reed–Solomon verification, camera/browser journeys,
 the original native receiving work, or production ANQR acceptance.
