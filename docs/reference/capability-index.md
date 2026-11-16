@@ -131,6 +131,8 @@ The [performance-budget model reference](performance-budget-model.md) explains
 classification, sample validation, cumulative readiness and their different limits.
 The [deterministic-output model reference](deterministic-output-model.md) separates
 seeded bytes and checksum helpers from real image encoding and byte comparison.
+The [round-trip correctness model reference](roundtrip-correctness-model.md) distinguishes
+embedded request-body comparison from real QR/image decoding and authentication.
 
 | Source module | Export entries |
 | --- | ---: |
