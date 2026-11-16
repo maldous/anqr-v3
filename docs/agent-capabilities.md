@@ -83,3 +83,8 @@ credentials or broaden permissions to prove that a guide works.
 and [release destination inventory](https://linear.app/maldous/issue/UIF-270)
 retain the actual observations and receipts. These issues are evidence
 locations, not additional product-runtime dependencies.
+
+The [documentation inventory and disposition map](documentation-map.md) records
+the inspected canonical documents, source/API coverage and genuine remaining
+gaps at its pinned revision. Refresh affected dispositions when source changes;
+the map is not a substitute for the task's current evidence or instructions.
