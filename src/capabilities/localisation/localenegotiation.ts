@@ -71,6 +71,7 @@ export function negotiateLocale(
   // 3. browser language list via alias map
   if (browserLanguages && browserLanguages.length > 0) {
     for (const lang of browserLanguages) {
+      if (!Object.hasOwn(aliasMap, lang)) continue;
       const aliased = aliasMap[lang];
       if (aliased !== undefined) {
         return { status: 'success', locale: aliased, resolvedBy: 'alias' };
