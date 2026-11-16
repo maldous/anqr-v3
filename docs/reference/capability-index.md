@@ -127,6 +127,9 @@ perimeter and readiness behavior without implying hosted or authenticated servic
 
 ### Quality
 
+The [performance-budget model reference](performance-budget-model.md) explains
+classification, sample validation, cumulative readiness and their different limits.
+
 | Source module | Export entries |
 | --- | ---: |
 | [deterministicoutput](../../src/capabilities/quality/deterministicoutput.ts) | 21 |
