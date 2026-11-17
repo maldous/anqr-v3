@@ -206,3 +206,162 @@ test('scansafeoutputvalidation', () => {
   const result4 = capability.validateOnly(state4, artefact);
   assert.strictEqual(result4.success, true);
 });
+
+const finiteMeasurementPaths = ['validateOnly', 'validateAndMutate'] as const;
+
+function exerciseFiniteMeasurementPath(
+  path: typeof finiteMeasurementPaths[number],
+  decoder: NonNullable<capability.SafetyState['decoder']>,
+  mode: capability.SafetyMode = 'strict'
+) {
+  const artefact = Object.freeze({ value: 'synthetic artefact' });
+  const state = Object.freeze({ decoder, safetyMode: mode });
+  let mutationCalls = 0;
+  const mutate = (validated: unknown) => {
+    mutationCalls += 1;
+    assert.strictEqual(validated, artefact);
+    return validated;
+  };
+  const result = path === 'validateOnly'
+    ? capability.validateOnly(state, artefact)
+    : capability.validateAndMutate(state, artefact, mutate);
+  assert.strictEqual(state.decoder, decoder);
+  assert.strictEqual(state.safetyMode, mode);
+  assert.deepEqual(artefact, { value: 'synthetic artefact' });
+  return { result, mutationCalls, artefact };
+}
+
+function requireFiniteMeasurementRefusal(result: capability.SafetyCheckResult) {
+  assert.strictEqual(result.success, false);
+  if (result.success) throw new Error('Expected strict measurement refusal');
+  assert.strictEqual(result.error.mode, 'strict');
+  assert.strictEqual(result.error.contributingControl, 'decoder');
+  return result.error.message;
+}
+
+test('scan_safe_finite_measurements_missing_nonfinite_and_malformed_refuse_before_mutation', () => {
+  const invalid: readonly unknown[] = [NaN, Infinity, -Infinity, undefined, null, '0.9', {}];
+  for (const path of finiteMeasurementPaths) {
+    for (const value of invalid) {
+      for (const field of ['margin', 'threshold'] as const) {
+        const decoded = { decodable: true, margin: 0.9, threshold: 0.8, [field]: value };
+        const observed = exerciseFiniteMeasurementPath(path, () => decoded as capability.DecodedArtefact);
+        assert.strictEqual(requireFiniteMeasurementRefusal(observed.result), 'Strict safety measurements must be finite numbers');
+        assert.strictEqual(observed.mutationCalls, 0);
+      }
+    }
+  }
+});
+
+test('scan_safe_finite_measurements_keep_finite_comparison_and_mutation_semantics', () => {
+  const cases = [
+    { margin: 0.9, threshold: 0.8, accepted: true },
+    { margin: 0.8, threshold: 0.8, accepted: false },
+    { margin: 0.7, threshold: 0.8, accepted: false },
+    { margin: 0, threshold: 0, accepted: false },
+    { margin: 0.1, threshold: 0, accepted: true },
+    { margin: -0.2, threshold: -0.3, accepted: true },
+  ];
+  for (const path of finiteMeasurementPaths) {
+    for (const { margin, threshold, accepted } of cases) {
+      const observed = exerciseFiniteMeasurementPath(path, () => ({ decodable: true, margin, threshold }));
+      assert.strictEqual(observed.result.success, accepted);
+      assert.strictEqual(observed.mutationCalls, path === 'validateAndMutate' && accepted ? 1 : 0);
+      if (observed.result.success) {
+        assert.strictEqual(observed.result.artefact, observed.artefact);
+        assert.strictEqual(observed.result.decoderUsed, true);
+      } else {
+        assert.strictEqual(observed.result.error.message,
+          `Margin (${margin}) does not exceed threshold (${threshold}) in strict mode`);
+      }
+    }
+  }
+});
+
+test('scan_safe_finite_measurements_capture_each_getter_once_including_failure_messages', () => {
+  for (const path of finiteMeasurementPaths) {
+    for (const margin of [0.9, 0.8, 0.7]) {
+      let marginReads = 0;
+      let thresholdReads = 0;
+      const decoded = {
+        decodable: true,
+        get margin() {
+          marginReads += 1;
+          if (marginReads !== 1) throw new Error('SYNTHETIC_SECOND_MARGIN_READ');
+          return margin;
+        },
+        get threshold() {
+          thresholdReads += 1;
+          if (thresholdReads !== 1) throw new Error('SYNTHETIC_SECOND_THRESHOLD_READ');
+          return 0.8;
+        },
+      };
+      const observed = exerciseFiniteMeasurementPath(path, () => decoded);
+      assert.strictEqual(observed.result.success, margin > 0.8);
+      assert.strictEqual(observed.mutationCalls, path === 'validateAndMutate' && margin > 0.8 ? 1 : 0);
+      assert.strictEqual(marginReads, 1);
+      assert.strictEqual(thresholdReads, 1);
+      if (!observed.result.success) {
+        assert.strictEqual(observed.result.error.message,
+          `Margin (${margin}) does not exceed threshold (0.8) in strict mode`);
+      }
+    }
+  }
+});
+
+test('scan_safe_finite_measurements_throwing_getters_refuse_without_error_disclosure', () => {
+  for (const path of finiteMeasurementPaths) {
+    for (const field of ['margin', 'threshold'] as const) {
+      const decoded = { decodable: true, margin: 0.9, threshold: 0.8 };
+      Object.defineProperty(decoded, field, { get() { throw new Error('SYNTHETIC_PRIVATE_MEASUREMENT'); } });
+      const observed = exerciseFiniteMeasurementPath(path, () => decoded);
+      assert.strictEqual(requireFiniteMeasurementRefusal(observed.result), 'Strict safety measurements are unavailable');
+      assert.strictEqual(observed.mutationCalls, 0);
+    }
+  }
+});
+
+test('scan_safe_finite_measurements_nondecode_refusal_precedes_measurement_access', () => {
+  for (const path of finiteMeasurementPaths) {
+    let reads = 0;
+    const decoded = {
+      decodable: false,
+      get margin(): number { reads += 1; throw new Error('SYNTHETIC_UNREAD_MARGIN'); },
+      get threshold(): number { reads += 1; throw new Error('SYNTHETIC_UNREAD_THRESHOLD'); },
+    };
+    const observed = exerciseFiniteMeasurementPath(path, () => decoded);
+    assert.strictEqual(requireFiniteMeasurementRefusal(observed.result), 'Artefact is not decodable in strict mode');
+    assert.strictEqual(observed.mutationCalls, 0);
+    assert.strictEqual(reads, 0);
+  }
+});
+
+test('scan_safe_finite_measurements_balanced_and_off_preserve_their_existing_contracts', () => {
+  for (const path of finiteMeasurementPaths) {
+    for (const mode of ['balanced', 'off'] as const) {
+      let reads = 0;
+      const decoded = {
+        decodable: mode === 'balanced',
+        get margin(): number { reads += 1; throw new Error('SYNTHETIC_UNREAD_MARGIN'); },
+        get threshold(): number { reads += 1; throw new Error('SYNTHETIC_UNREAD_THRESHOLD'); },
+      };
+      const observed = exerciseFiniteMeasurementPath(path, () => decoded, mode);
+      assert.strictEqual(observed.result.success, true);
+      assert.strictEqual(observed.mutationCalls, path === 'validateAndMutate' ? 1 : 0);
+      assert.strictEqual(reads, 0);
+    }
+  }
+});
+
+test('scan_safe_finite_measurements_decoder_exceptions_keep_existing_fail_closed_order', () => {
+  for (const path of finiteMeasurementPaths) {
+    let calls = 0;
+    const observed = exerciseFiniteMeasurementPath(path, () => {
+      calls += 1;
+      throw new Error('SYNTHETIC_PRIVATE_DECODER');
+    });
+    assert.strictEqual(requireFiniteMeasurementRefusal(observed.result), 'Decoder failed to process artefact');
+    assert.strictEqual(observed.mutationCalls, 0);
+    assert.strictEqual(calls, 1);
+  }
+});

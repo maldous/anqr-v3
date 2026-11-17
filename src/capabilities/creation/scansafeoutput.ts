@@ -91,6 +91,24 @@ export function isReady(state: SafetyState): boolean {
   return state.decoder !== null;
 }
 
+function strictMeasurementError(decoded: DecodedArtefact): string | null {
+  let margin: number;
+  let threshold: number;
+  try {
+    margin = decoded.margin;
+    threshold = decoded.threshold;
+  } catch {
+    return 'Strict safety measurements are unavailable';
+  }
+  if (!Number.isFinite(margin) || !Number.isFinite(threshold)) {
+    return 'Strict safety measurements must be finite numbers';
+  }
+  if (margin <= threshold) {
+    return `Margin (${margin}) does not exceed threshold (${threshold}) in strict mode`;
+  }
+  return null;
+}
+
 // --- Safety validation ---
 
 /**
@@ -178,11 +196,12 @@ export function validateAndMutate(
           },
         };
       }
-      if (decoded.margin <= decoded.threshold) {
+      const measurementError = strictMeasurementError(decoded);
+      if (measurementError !== null) {
         return {
           success: false,
           error: {
-            message: `Margin (${decoded.margin}) does not exceed threshold (${decoded.threshold}) in strict mode`,
+            message: measurementError,
             mode: state.safetyMode,
             contributingControl: 'decoder',
           },
@@ -275,7 +294,7 @@ export function validateOnly(
         mode: state.safetyMode,
         decoderUsed: true,
       };
-    case 'strict':
+    case 'strict': {
       if (!decoded.decodable) {
         return {
           success: false,
@@ -286,11 +305,12 @@ export function validateOnly(
           },
         };
       }
-      if (decoded.margin <= decoded.threshold) {
+      const measurementError = strictMeasurementError(decoded);
+      if (measurementError !== null) {
         return {
           success: false,
           error: {
-            message: `Margin (${decoded.margin}) does not exceed threshold (${decoded.threshold}) in strict mode`,
+            message: measurementError,
             mode: state.safetyMode,
             contributingControl: 'decoder',
           },
@@ -302,6 +322,7 @@ export function validateOnly(
         mode: state.safetyMode,
         decoderUsed: true,
       };
+    }
     default:
       return {
         success: false,
