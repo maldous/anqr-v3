@@ -260,11 +260,20 @@ export function createPolicy(
   if (maxBytes <= 0) {
     throw new Error('maxBytes must be positive');
   }
+  if (!Number.isFinite(maxBytes)) {
+    throw new Error('maxBytes must be finite');
+  }
   if (timeoutMs <= 0) {
     throw new Error('timeoutMs must be positive');
   }
+  if (!Number.isFinite(timeoutMs)) {
+    throw new Error('timeoutMs must be finite');
+  }
   if (maxRedirects < 0) {
     throw new Error('maxRedirects must be non-negative');
+  }
+  if (!Number.isFinite(maxRedirects)) {
+    throw new Error('maxRedirects must be finite');
   }
 
   return {
@@ -356,6 +365,12 @@ export function checkSizeBoundary(
       reason: `Response size ${size} exceeds maximum ${policy.maxBytes}`,
     };
   }
+  if (!Number.isFinite(size) || size < 0) {
+    return {
+      boundary: 'size',
+      reason: 'Response size must be a finite non-negative number',
+    };
+  }
   return null;
 }
 
@@ -367,6 +382,12 @@ export function checkTimeoutBoundary(
     return {
       boundary: 'timeout',
       reason: `Elapsed ${elapsedMs}ms exceeds maximum ${policy.timeoutMs}ms`,
+    };
+  }
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
+    return {
+      boundary: 'timeout',
+      reason: 'Elapsed time must be a finite non-negative number',
     };
   }
   return null;
