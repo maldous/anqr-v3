@@ -149,7 +149,7 @@ export function validateOverlay(overlay: OverlayCustomisation | undefined): Vali
     if (typeof overlay.logo.data !== 'string' || overlay.logo.data.length === 0) {
       return failure('INVALID_OVERLAY', 'Overlay logo data must be a non-empty string.');
     }
-    if (typeof overlay.logo.size !== 'number' || overlay.logo.size <= 0) {
+    if (typeof overlay.logo.size !== 'number' || !Number.isFinite(overlay.logo.size) || overlay.logo.size <= 0) {
       return failure('INVALID_OVERLAY', 'Overlay logo size must be a positive number.');
     }
   }
