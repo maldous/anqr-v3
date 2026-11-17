@@ -326,8 +326,8 @@ test('scan_safe_finite_measurements_nondecode_refusal_precedes_measurement_acces
     let reads = 0;
     const decoded = {
       decodable: false,
-      get margin() { reads += 1; throw new Error('SYNTHETIC_UNREAD_MARGIN'); },
-      get threshold() { reads += 1; throw new Error('SYNTHETIC_UNREAD_THRESHOLD'); },
+      get margin(): number { reads += 1; throw new Error('SYNTHETIC_UNREAD_MARGIN'); },
+      get threshold(): number { reads += 1; throw new Error('SYNTHETIC_UNREAD_THRESHOLD'); },
     };
     const observed = exerciseFiniteMeasurementPath(path, () => decoded);
     assert.strictEqual(requireFiniteMeasurementRefusal(observed.result), 'Artefact is not decodable in strict mode');
@@ -342,8 +342,8 @@ test('scan_safe_finite_measurements_balanced_and_off_preserve_their_existing_con
       let reads = 0;
       const decoded = {
         decodable: mode === 'balanced',
-        get margin() { reads += 1; throw new Error('SYNTHETIC_UNREAD_MARGIN'); },
-        get threshold() { reads += 1; throw new Error('SYNTHETIC_UNREAD_THRESHOLD'); },
+        get margin(): number { reads += 1; throw new Error('SYNTHETIC_UNREAD_MARGIN'); },
+        get threshold(): number { reads += 1; throw new Error('SYNTHETIC_UNREAD_THRESHOLD'); },
       };
       const observed = exerciseFiniteMeasurementPath(path, () => decoded, mode);
       assert.strictEqual(observed.result.success, true);
