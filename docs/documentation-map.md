@@ -72,6 +72,16 @@ as a new artificial gate.
 
 ## Implemented, tested, reviewed and deployed are separate
 
+### Later bounded consumer references
+
+The [anonymous-generation and payload-confidentiality reference](reference/privacy-models.md)
+describes those two models at source `036a403ab1e7f82b72e3c6006937532e1657f2a3`,
+including counter/permission stubs, actual byte-size measurement, callback/reference
+behavior and non-enforced privacy claims. It adds a consumer reference, not a
+refresh of the historical inventory counts/blob table above or a new product test run.
+
+### Retained source and qualification observations
+
 - PR25 integrated selected corrections at
   `af6a23dd735a9cc92c29dd8db496e04aaaf73003`. Its accepted source typecheck,
   242-test full suite and overlapping 196-test conformance receipts retain their
