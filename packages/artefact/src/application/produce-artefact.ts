@@ -130,38 +130,50 @@ export function createArtefactProducer(dependencies: ProducerDependencies): Arte
       }
       if (scanSafety.verdict === "unsafe") return { ok: false, refusal: { kind: "unsafe", detail: scanSafety.detail } };
 
-      const scale = specification.moduleSizePx;
-      const quiet = specification.quietZoneModules;
-      const sizePx = (symbol.size + quiet * 2) * scale;
-      const surface = dependencies.surfaceFor(sizePx, sizePx);
-      surface.fill(hexToRgba(specification.backgroundColour));
-      const foreground = hexToRgba(specification.foregroundColour);
-      for (let y = 0; y < symbol.size; y += 1) {
-        for (let x = 0; x < symbol.size; x += 1) {
-          if (symbol.modules[y * symbol.size + x] === 1) {
-            surface.fillRect((x + quiet) * scale, (y + quiet) * scale, scale, scale, foreground);
+      try {
+        const scale = specification.moduleSizePx;
+        const quiet = specification.quietZoneModules;
+        const sizePx = (symbol.size + quiet * 2) * scale;
+        const surface = dependencies.surfaceFor(sizePx, sizePx);
+        surface.fill(hexToRgba(specification.backgroundColour));
+        const foreground = hexToRgba(specification.foregroundColour);
+        for (let y = 0; y < symbol.size; y += 1) {
+          for (let x = 0; x < symbol.size; x += 1) {
+            if (symbol.modules[y * symbol.size + x] === 1) {
+              surface.fillRect((x + quiet) * scale, (y + quiet) * scale, scale, scale, foreground);
+            }
           }
         }
-      }
 
-      const layout = blockLayout(symbol.version, symbol.level);
-      return {
-        ok: true,
-        artefact: {
-          specification,
-          structure: {
-            symbolVersion: symbol.version,
-            errorCorrectionLevel: symbol.level,
-            maskPattern: symbol.mask,
-            moduleCount: symbol.size * symbol.size,
-            sizePx,
-            damageMarginCodewords: Math.floor(layout.ecPerBlock / 2),
+        const layout = blockLayout(symbol.version, symbol.level);
+        return {
+          ok: true,
+          artefact: {
+            specification,
+            structure: {
+              symbolVersion: symbol.version,
+              errorCorrectionLevel: symbol.level,
+              maskPattern: symbol.mask,
+              moduleCount: symbol.size * symbol.size,
+              sizePx,
+              damageMarginCodewords: Math.floor(layout.ecPerBlock / 2),
+            },
+            scanSafety,
+            frame: { width: sizePx, height: sizePx, pixels: surface.pixels(), durationMs: 0 },
+            producedAtMs: dependencies.clock.nowMs(),
           },
-          scanSafety,
-          frame: { width: sizePx, height: sizePx, pixels: surface.pixels(), durationMs: 0 },
-          producedAtMs: dependencies.clock.nowMs(),
-        },
-      };
+        };
+      } catch (error) {
+        // Error conversion can itself throw for values supplied by injected ports.
+        let detail = "Unable to describe production failure";
+        try {
+          const reported = error instanceof Error ? error.message : String(error);
+          if (typeof reported === "string") detail = reported;
+        } catch {
+          // Keep the fallback so the failure still returns as a refusal.
+        }
+        return { ok: false, refusal: { kind: "production-failed", detail } };
+      }
     },
 
     async exportArtefact(artefact: ProducedArtefact): Promise<ExportResult> {

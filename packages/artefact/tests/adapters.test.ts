@@ -390,6 +390,38 @@ test("PNG transparency keys are explicitly refused instead of becoming opaque", 
   }
 });
 
+test("the image source preserves explicit greyscale alpha for a QR image", async () => {
+  // This tests PNG pixel normalization, not symbol detection or optical decoding.
+  const payload = "https://anqr.link/output-boundary";
+  const encoded = encodePayload(payload, { level: "H" });
+  const symbol = buildSymbol(encoded.codewords, encoded.version, encoded.level, { mask: "auto" });
+  const quiet = 4;
+  const side = symbol.size + 2 * quiet;
+  const stride = 1 + side * 2; // filter byte, then greyscale/alpha pairs
+  const rows = new Uint8Array(side * stride);
+  const expected = new Uint8Array(side * side * 4);
+
+  for (let y = 0; y < side; y += 1) {
+    for (let x = 0; x < side; x += 1) {
+      const within = x >= quiet && y >= quiet &&
+        x < side - quiet && y < side - quiet;
+      const dark = within && symbol.modules[(y - quiet) * symbol.size + (x - quiet)] === 1;
+      const grey = dark ? 0 : 255;
+      const alpha = within ? 255 : 192;
+      const scanline = y * stride + 1 + x * 2;
+      rows.set([grey, alpha], scanline);
+      expected.set([grey, grey, grey, alpha], (y * side + x) * 4);
+    }
+  }
+
+  const png = buildPng(side, side, 4, deflateSync(rows));
+  const decoded = await pngImageSource.decode(png, "image/png");
+  assert.ok(decoded.ok);
+  assert.equal(decoded.image.width, side);
+  assert.equal(decoded.image.height, side);
+  assert.deepEqual(decoded.image.pixels, expected);
+});
+
 test("the image source refuses what it cannot decode, with distinct reasons", async () => {
   const valid = (await pngContainer.encode([checkerboard(4, 4)])).bytes;
 
